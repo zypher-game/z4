@@ -1,0 +1,6 @@
+[workspace]
+members = [
+  "engine",
+  "node",
+]
+resolver = "2"
