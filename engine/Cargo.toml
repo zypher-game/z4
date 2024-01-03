@@ -14,5 +14,15 @@ serde_json = "1.0"
 tdn = { version = "0.10", default-features = false, features = ["multiple"] }
 tokio = "1.35"
 tracing = "0.1"
+tokio-tungstenite = { version = "0.21", optional = true }
+futures-util = { version = "0.3", default-features = false, features = ["sink"], optional = true }
 
 [dev-dependencies]
+rand_chacha = "0.3"
+
+[features]
+default = ["request"]
+request = [
+  "tokio-tungstenite",
+  "futures-util"
+]

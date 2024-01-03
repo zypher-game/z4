@@ -1,13 +1,12 @@
-use tdn::prelude::PeerId;
-
+#[derive(Debug)]
 pub enum Error {
-    //
+    /// Invalid params
+    Params,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
 
 pub type RoomId = u64;
-pub type Account = PeerId;
 
 pub enum ChainMessage {
     CreateRoom,
