@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 use tdn::prelude::{Config as TdnConfig, PeerKey};
 
-use crate::PeerId;
-
 #[derive(Default)]
 pub struct Config {
     pub secret_key: String,
@@ -14,7 +12,7 @@ pub struct Config {
 impl Config {
     pub fn to_tdn(&self) -> (TdnConfig, PeerKey) {
         let mut config = TdnConfig::default();
-        config.db_path = Some(PathBuf::from("./tdn"));
+        config.db_path = Some(PathBuf::from("./.tdn"));
         config.rpc_ws = match self.ws_port {
             Some(port) => Some(format!("0.0.0.0:{}", port).parse().unwrap()),
             None => None,

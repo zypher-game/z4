@@ -2,6 +2,8 @@
 pub enum Error {
     /// Invalid params
     Params,
+    /// not has the room
+    NoRoom,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;

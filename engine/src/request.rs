@@ -38,11 +38,11 @@ pub async fn run_ws_channel(
 }
 
 pub async fn run_p2p_channel(
-    peer: &PeerKey,
-    room: RoomId,
-    recv: UnboundedReceiver<ChannelMessage>,
+    _peer: &PeerKey,
+    _room: RoomId,
+    _recv: UnboundedReceiver<ChannelMessage>,
 ) -> Result<UnboundedReceiver<ChannelMessage>> {
-    let (sender, receiver) = unbounded_channel();
+    let (_sender, receiver) = unbounded_channel();
 
     //
 
@@ -91,7 +91,7 @@ async fn ws_listen(
             Some(FutureResult::Stream(msg)) => {
                 let msg = msg.to_text().unwrap();
                 match serde_json::from_str::<Value>(&msg) {
-                    Ok(mut values) => {
+                    Ok(values) => {
                         let gid = values["gid"].as_u64().unwrap();
                         let method = values["method"].as_str().unwrap().to_owned();
                         let params = values["result"].as_array().unwrap().to_vec();

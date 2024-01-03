@@ -3,12 +3,8 @@ use rand_chacha::{
     ChaChaRng,
 };
 use std::collections::HashMap;
-use std::sync::Arc;
 use tdn::types::primitives::vec_remove_item;
-use tokio::sync::{
-    mpsc::{UnboundedReceiver, UnboundedSender},
-    RwLock,
-};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use zroom_engine::{
     json,
     request::{message_channel, run_p2p_channel, run_ws_channel, ChannelMessage},
@@ -30,7 +26,25 @@ struct ShootHandler {
     accounts: HashMap<PeerId, ShootPlayer>,
 }
 
+#[async_trait::async_trait]
 impl Handler for ShootHandler {
+    async fn create(peers: &[PeerId]) -> Self {
+        let accounts = peers
+            .iter()
+            .map(|id| {
+                (
+                    *id,
+                    ShootPlayer {
+                        hp: TOTAL,
+                        bullet: TOTAL,
+                    },
+                )
+            })
+            .collect();
+
+        Self { accounts }
+    }
+
     async fn handle(
         &mut self,
         player: PeerId,
@@ -114,7 +128,15 @@ async fn main() {
             },
         );
     }
-    let _ = Engine::new(ShootHandler { accounts }).run(config).await;
+
+    let mut engine = Engine::<ShootHandler>::init(config);
+    engine.add_pending(ROOM);
+    engine.add_peer(ROOM, id1);
+    engine.add_peer(ROOM, id2);
+    engine.add_peer(ROOM, id3);
+    engine.add_peer(ROOM, id4);
+    engine.start_room(ROOM).await;
+    let _ = engine.run().await;
 }
 
 async fn mock_player_with_rpc(player: PeerKey, opponents: Vec<PeerId>) {
@@ -130,7 +152,7 @@ async fn mock_player_with_rpc(player: PeerKey, opponents: Vec<PeerId>) {
     mock_player(player, opponents, in_send, out_recv).await
 }
 
-async fn mock_player_with_p2p(player: PeerKey, mut opponents: Vec<PeerId>) {
+async fn _mock_player_with_p2p(player: PeerKey, opponents: Vec<PeerId>) {
     println!("Player: {:?} with P2P", player.peer_id());
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
@@ -180,43 +202,49 @@ async fn mock_player(
                 let params = vec![json!(my_id.to_hex()), json!(someone.to_hex())];
                 in_send.send((ROOM, "shoot".to_owned(), params)).unwrap();
             }
-            Some(Work::Shooted((_room, method, params))) => {
-                let a = PeerId::from_hex(params[0].as_str().unwrap()).unwrap();
-                let b = PeerId::from_hex(params[1].as_str().unwrap()).unwrap();
-                let a_bullet = params[2].as_i64().unwrap() as u32;
-                let b_hp = params[3].as_i64().unwrap() as u32;
+            Some(Work::Shooted((_room, method, params))) => match method.as_str() {
+                "shoot" => {
+                    let a = PeerId::from_hex(params[0].as_str().unwrap()).unwrap();
+                    let b = PeerId::from_hex(params[1].as_str().unwrap()).unwrap();
+                    let a_bullet = params[2].as_i64().unwrap() as u32;
+                    let b_hp = params[3].as_i64().unwrap() as u32;
 
-                if a == my_id {
-                    my_state.bullet = a_bullet;
+                    if a == my_id {
+                        my_state.bullet = a_bullet;
+                    }
+
+                    if b == my_id {
+                        my_state.hp = b_hp;
+                    }
+
+                    others
+                        .entry(a)
+                        .and_modify(|info| info.bullet = a_bullet)
+                        .or_insert(ShootPlayer {
+                            hp: TOTAL,
+                            bullet: a_bullet,
+                        });
+                    others
+                        .entry(b)
+                        .and_modify(|info| info.hp = b_hp)
+                        .or_insert(ShootPlayer {
+                            hp: b_hp,
+                            bullet: TOTAL,
+                        });
+
+                    if others.get(&b).unwrap().hp == 0 {
+                        vec_remove_item(&mut opponents, &b);
+                    }
+
+                    if opponents.is_empty() || my_state.bullet == 0 || my_state.hp == 0 {
+                        break;
+                    }
                 }
-
-                if b == my_id {
-                    my_state.hp = b_hp;
-                }
-
-                others
-                    .entry(a)
-                    .and_modify(|info| info.bullet = a_bullet)
-                    .or_insert(ShootPlayer {
-                        hp: TOTAL,
-                        bullet: a_bullet,
-                    });
-                others
-                    .entry(b)
-                    .and_modify(|info| info.hp = b_hp)
-                    .or_insert(ShootPlayer {
-                        hp: b_hp,
-                        bullet: TOTAL,
-                    });
-
-                if others.get(&b).unwrap().hp == 0 {
-                    vec_remove_item(&mut opponents, &b);
-                }
-
-                if opponents.is_empty() || my_state.bullet == 0 || my_state.hp == 0 {
+                "over" => {
                     break;
                 }
-            }
+                _ => {}
+            },
             None => break,
         }
     }
