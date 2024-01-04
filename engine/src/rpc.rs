@@ -6,7 +6,7 @@ use crate::{
     engine::{handle_result, Engine},
     room::ConnectType,
     types::{Error, Result},
-    Handler,
+    Handler, Param,
 };
 
 /// handle rpc message
@@ -23,15 +23,8 @@ pub async fn handle_rpc<H: Handler>(
     }
 
     let method = params["method"].as_str().unwrap_or("").to_owned();
-    let mut params = match params["params"].take() {
-        Value::Array(params) => params,
-        _ => vec![],
-    };
-    let peer_id = if params.is_empty() {
-        return Err(Error::Params);
-    } else {
-        PeerId::from_hex(params.remove(0).as_str().unwrap_or("")).unwrap()
-    };
+    let peer_id = PeerId::from_hex(params["peer"].as_str().unwrap_or("")).unwrap();
+    let params = params["params"].take();
 
     if &method == "connect" && is_ws {
         if engine.online(gid, peer_id, ConnectType::Rpc(uid)) {
@@ -49,6 +42,7 @@ pub async fn handle_rpc<H: Handler>(
     }
 
     if engine.is_room_peer(&gid, &peer_id) {
+        let params = H::Param::from_value(params)?;
         let handler = engine.get_mut_handler(&gid).unwrap(); // safe
         let res = handler.handle(peer_id, &method, params).await?;
 

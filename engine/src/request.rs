@@ -18,25 +18,25 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
 };
 
-use crate::types::*;
+use crate::{types::*, Param};
 
-pub type ChannelMessage = (RoomId, String, Vec<Value>);
+pub type ChannelMessage<P> = (RoomId, String, P);
 
 #[inline]
-pub fn message_channel() -> (
-    UnboundedSender<ChannelMessage>,
-    UnboundedReceiver<ChannelMessage>,
+pub fn message_channel<P: Param>() -> (
+    UnboundedSender<ChannelMessage<P>>,
+    UnboundedReceiver<ChannelMessage<P>>,
 ) {
     unbounded_channel()
 }
 
 /// running a ws channel
-pub async fn run_ws_channel(
+pub async fn run_ws_channel<P: 'static + Param>(
     peer: &PeerKey,
     room: RoomId,
-    in_recv: UnboundedReceiver<ChannelMessage>,
+    in_recv: UnboundedReceiver<ChannelMessage<P>>,
     url: impl IntoClientRequest + Unpin,
-) -> Result<UnboundedReceiver<ChannelMessage>> {
+) -> Result<UnboundedReceiver<ChannelMessage<P>>> {
     let (out_send, out_recv) = unbounded_channel();
     let (ws_stream, _) = connect_async(url).await.expect("Failed to connect"); // TODO
 
@@ -46,12 +46,12 @@ pub async fn run_ws_channel(
 }
 
 /// running a p2p channel
-pub async fn run_p2p_channel(
+pub async fn run_p2p_channel<P: 'static + Param>(
     peer: &PeerKey,
     room: RoomId,
-    in_recv: UnboundedReceiver<ChannelMessage>,
+    in_recv: UnboundedReceiver<ChannelMessage<P>>,
     server: Peer,
-) -> Result<UnboundedReceiver<ChannelMessage>> {
+) -> Result<UnboundedReceiver<ChannelMessage<P>>> {
     let (out_send, out_recv) = unbounded_channel();
     let peer = PeerKey::from_db_bytes(&peer.to_db_bytes()).unwrap(); // safe
 
@@ -69,22 +69,32 @@ pub async fn run_p2p_channel(
     Ok(out_recv)
 }
 
-enum WsResult {
-    Out(ChannelMessage),
+enum WsResult<P: Param> {
+    Out(ChannelMessage<P>),
     Stream(Message),
 }
 
-async fn ws_listen(
+#[inline]
+fn build_request(method: &str, v: Vec<Value>, room: RoomId, peer: &PeerKey) -> Value {
+    let mut request = rpc_request(0, &method, v, room);
+    request
+        .as_object_mut()
+        .unwrap()
+        .insert("peer".to_owned(), peer.peer_id().to_hex().into());
+    request
+}
+
+async fn ws_listen<P: Param>(
     peer: PeerKey,
     room: RoomId,
-    send: UnboundedSender<ChannelMessage>,
-    mut in_recv: UnboundedReceiver<ChannelMessage>,
+    send: UnboundedSender<ChannelMessage<P>>,
+    mut in_recv: UnboundedReceiver<ChannelMessage<P>>,
     ws_stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
 ) {
     let (mut writer, mut reader) = ws_stream.split();
 
     // send connect
-    let request = rpc_request(0, "connect", vec![peer.peer_id().to_hex().into()], room);
+    let request = build_request("connect", vec![], room, &peer);
     let s = Message::from(serde_json::to_string(&request).unwrap_or("".to_owned()));
     let _ = writer.send(s).await;
 
@@ -102,19 +112,27 @@ async fn ws_listen(
 
         match res {
             Some(WsResult::Out((room, method, params))) => {
-                let request = rpc_request(0, &method, params, room);
+                let v = match params.to_value() {
+                    Value::Array(p) => p,
+                    o => vec![o],
+                };
+                let request = build_request(&method, v, room, &peer);
                 let s = Message::from(serde_json::to_string(&request).unwrap_or("".to_owned()));
                 let _ = writer.send(s).await;
             }
             Some(WsResult::Stream(msg)) => {
                 let msg = msg.to_text().unwrap_or("");
                 match serde_json::from_str::<Value>(&msg) {
-                    Ok(values) => {
+                    Ok(mut values) => {
                         let gid = values["gid"].as_u64().unwrap(); // TODO unwrap
                         let method = values["method"].as_str().unwrap().to_owned();
-                        let params = values["result"].as_array().unwrap().to_vec();
-
-                        let _ = send.send((gid, method, params));
+                        // let server_id = values["peer"].as_str().unwrap(); TODO
+                        match P::from_value(values["result"].take()) {
+                            Ok(p) => {
+                                let _ = send.send((gid, method, p));
+                            }
+                            _ => {}
+                        }
                     }
                     Err(_e) => {}
                 }
@@ -124,16 +142,16 @@ async fn ws_listen(
     }
 }
 
-enum P2pResult {
-    Out(ChannelMessage),
+enum P2pResult<P: Param> {
+    Out(ChannelMessage<P>),
     Stream(ReceiveMessage),
 }
 
-async fn p2p_listen(
+async fn p2p_listen<P: Param>(
     server: Peer,
     room: RoomId,
-    send: UnboundedSender<ChannelMessage>,
-    mut in_recv: UnboundedReceiver<ChannelMessage>,
+    send: UnboundedSender<ChannelMessage<P>>,
+    mut in_recv: UnboundedReceiver<ChannelMessage<P>>,
     p2p_send: Sender<SendMessage>,
     mut p2p_recv: Receiver<ReceiveMessage>,
 ) {
@@ -170,8 +188,10 @@ async fn p2p_listen(
 
         match res {
             Some(P2pResult::Out((room, method, params))) => {
-                let params = serde_json::to_vec(&params).unwrap_or(vec![]);
-                let msg = P2pMessage { method, params };
+                let msg = P2pMessage {
+                    method: &method,
+                    params: params.to_bytes(),
+                };
 
                 match bincode::serialize(&msg) {
                     Ok(bytes) => {
@@ -191,9 +211,12 @@ async fn p2p_listen(
                         if peer == server_id {
                             match bincode::deserialize::<P2pMessage>(&msg) {
                                 Ok(P2pMessage { method, params }) => {
-                                    let params = serde_json::from_slice(&params)
-                                        .unwrap_or(Default::default());
-                                    let _ = send.send((gid, method, params));
+                                    match Param::from_bytes(&params) {
+                                        Ok(p) => {
+                                            let _ = send.send((gid, method.to_owned(), p));
+                                        }
+                                        _ => {}
+                                    }
                                 }
                                 _ => {}
                             }

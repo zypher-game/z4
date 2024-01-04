@@ -5,7 +5,7 @@ use crate::{
     engine::{handle_result, Engine},
     room::ConnectType,
     types::{P2pMessage, Result},
-    Handler,
+    Handler, Param,
 };
 
 /// handle p2p message
@@ -56,10 +56,10 @@ pub async fn handle_p2p<H: Handler>(
         RecvType::Event(peer_id, data) => {
             if engine.is_room_peer(&gid, &peer_id) {
                 let P2pMessage { method, params } = bincode::deserialize(&data)?;
-                let params = serde_json::from_slice(&params)?;
+                let params = H::Param::from_bytes(&params)?;
 
                 let handler = engine.get_mut_handler(&gid).unwrap(); // safe
-                let res = handler.handle(peer_id, &method, params).await?;
+                let res = handler.handle(peer_id, method, params).await?;
 
                 let is_over = res.over;
                 let room = engine.get_room(&gid).unwrap(); // safe

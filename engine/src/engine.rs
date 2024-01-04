@@ -13,7 +13,7 @@ use crate::{
     room::{ConnectType, Room},
     rpc::handle_rpc,
     types::*,
-    HandleResult, Handler, Task,
+    HandleResult, Handler, Param, Task,
 };
 
 struct HandlerRoom<H: Handler> {
@@ -174,9 +174,9 @@ impl<H: Handler> Engine<H> {
     }
 }
 
-pub async fn handle_result(
+pub async fn handle_result<P: Param>(
     room: &Room,
-    result: HandleResult,
+    result: HandleResult<P>,
     send: &Sender<SendMessage>,
     rpc: Option<(PeerId, u64)>,
 ) {
@@ -188,11 +188,13 @@ pub async fn handle_result(
 
     loop {
         if !one.is_empty() {
-            let (peer, method, raw_params) = one.remove(0);
-            let params = serde_json::to_vec(&raw_params).unwrap_or(vec![]);
-            let msg = P2pMessage { method, params };
-            let p2p_bytes = bincode::serialize(&msg).unwrap(); // safe
-            let rpc_msg = rpc_response(0, &msg.method, raw_params.into(), room.id);
+            let (peer, method, params) = one.remove(0);
+            let p2p_msg = P2pMessage {
+                method: &method,
+                params: params.to_bytes(),
+            };
+            let p2p_bytes = bincode::serialize(&p2p_msg).unwrap(); // safe
+            let rpc_msg = rpc_response(0, &method, params.to_value(), room.id);
             match room.get(&peer) {
                 ConnectType::P2p => send
                     .send(SendMessage::Group(
@@ -222,11 +224,13 @@ pub async fn handle_result(
 
     loop {
         if !all.is_empty() {
-            let (method, raw_params) = all.remove(0);
-            let params = serde_json::to_vec(&raw_params).unwrap_or(vec![]);
-            let msg = P2pMessage { method, params };
-            let p2p_bytes = bincode::serialize(&msg).unwrap(); // safe
-            let rpc_msg = rpc_response(0, &msg.method, raw_params.into(), room.id);
+            let (method, params) = all.remove(0);
+            let p2p_msg = P2pMessage {
+                method: &method,
+                params: params.to_bytes(),
+            };
+            let p2p_bytes = bincode::serialize(&p2p_msg).unwrap(); // safe
+            let rpc_msg = rpc_response(0, &method, params.to_value(), room.id);
             for (peer, c) in room.iter() {
                 match c {
                     ConnectType::P2p => {
@@ -260,12 +264,12 @@ pub async fn handle_result(
     }
 
     if over {
-        let msg = P2pMessage {
-            method: "over".to_owned(),
+        let p2p_msg = P2pMessage {
+            method: "over",
             params: vec![],
         };
-        let p2p_bytes = bincode::serialize(&msg).unwrap(); // safe
-        let rpc_msg = rpc_response(0, &msg.method, Default::default(), room.id);
+        let p2p_bytes = bincode::serialize(&p2p_msg).unwrap(); // safe
+        let rpc_msg = rpc_response(0, "over", Default::default(), room.id);
         for (peer, c) in room.iter() {
             match c {
                 ConnectType::P2p => send

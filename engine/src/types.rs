@@ -17,8 +17,8 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub type RoomId = u64;
 
 #[derive(Serialize, Deserialize)]
-pub struct P2pMessage {
-    pub method: String,
+pub struct P2pMessage<'a> {
+    pub method: &'a str,
     pub params: Vec<u8>,
 }
 

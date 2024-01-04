@@ -8,7 +8,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use zroom_engine::{
     json,
     request::{message_channel, run_p2p_channel, run_ws_channel, ChannelMessage},
-    Config, Engine, Error, HandleResult, Handler, Peer, PeerId, PeerKey, Result, Value,
+    Config, Engine, Error, HandleResult, Handler, Param, Peer, PeerId, PeerKey, Result, Value,
 };
 
 const TOTAL: u32 = 5;
@@ -26,8 +26,35 @@ struct ShootHandler {
     accounts: HashMap<PeerId, ShootPlayer>,
 }
 
+#[derive(Default)]
+struct Params(Vec<Value>);
+
+impl Param for Params {
+    fn to_value(self) -> Value {
+        Value::Array(self.0)
+    }
+
+    fn from_value(value: Value) -> Result<Self> {
+        match value {
+            Value::Array(p) => Ok(Params(p)),
+            o => Ok(Params(vec![o])),
+        }
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        serde_json::to_vec(&self.0).unwrap_or(vec![])
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let v: Value = serde_json::from_slice(bytes)?;
+        Self::from_value(v)
+    }
+}
+
 #[async_trait::async_trait]
 impl Handler for ShootHandler {
+    type Param = Params;
+
     async fn create(peers: &[PeerId]) -> Self {
         let accounts = peers
             .iter()
@@ -49,8 +76,10 @@ impl Handler for ShootHandler {
         &mut self,
         player: PeerId,
         method: &str,
-        mut params: Vec<Value>,
-    ) -> Result<HandleResult> {
+        params: Params,
+    ) -> Result<HandleResult<Self::Param>> {
+        let mut params = params.0;
+
         // only support shoot method
         if method == "shoot" {
             if let Some(value) = params.pop() {
@@ -82,7 +111,12 @@ impl Handler for ShootHandler {
                 let mut result = HandleResult::default();
                 result.add_all(
                     "shoot",
-                    vec![player.to_hex().into(), value, a_bullet.into(), b_hp.into()],
+                    Params(vec![
+                        player.to_hex().into(),
+                        value,
+                        a_bullet.into(),
+                        b_hp.into(),
+                    ]),
                 );
                 return Ok(result);
             }
@@ -148,7 +182,7 @@ async fn mock_player_with_rpc(player: PeerKey, opponents: Vec<PeerId>) {
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
     // create ws channel with message
-    let (in_send, in_recv) = message_channel();
+    let (in_send, in_recv) = message_channel::<Params>();
     let out_recv = run_ws_channel(&player, ROOM, in_recv, "ws://127.0.0.1:8000")
         .await
         .unwrap();
@@ -161,7 +195,7 @@ async fn mock_player_with_p2p(player: PeerKey, opponents: Vec<PeerId>, sid: Peer
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
     // create p2p channel with message
-    let (in_send, in_recv) = message_channel();
+    let (in_send, in_recv) = message_channel::<Params>();
     let mut server = Peer::peer(sid);
     server.socket = "127.0.0.1:7364".parse().unwrap();
     let out_recv = run_p2p_channel(&player, ROOM, in_recv, server)
@@ -174,8 +208,8 @@ async fn mock_player_with_p2p(player: PeerKey, opponents: Vec<PeerId>, sid: Peer
 async fn mock_player(
     player: PeerKey,
     mut opponents: Vec<PeerId>,
-    in_send: UnboundedSender<ChannelMessage>,
-    mut out_recv: UnboundedReceiver<ChannelMessage>,
+    in_send: UnboundedSender<ChannelMessage<Params>>,
+    mut out_recv: UnboundedReceiver<ChannelMessage<Params>>,
 ) {
     let my_id = player.peer_id();
     let mut seed = [0u8; 32];
@@ -190,7 +224,7 @@ async fn mock_player(
 
     enum Work {
         Shoot(PeerId),
-        Shooted(ChannelMessage),
+        Shooted(ChannelMessage<Params>),
     }
 
     loop {
@@ -207,11 +241,12 @@ async fn mock_player(
 
         match work {
             Some(Work::Shoot(someone)) => {
-                let params = vec![json!(my_id.to_hex()), json!(someone.to_hex())];
+                let params = Params(vec![json!(my_id.to_hex()), json!(someone.to_hex())]);
                 in_send.send((ROOM, "shoot".to_owned(), params)).unwrap();
             }
             Some(Work::Shooted((_room, method, params))) => match method.as_str() {
                 "shoot" => {
+                    let params = params.0;
                     let a = PeerId::from_hex(params[0].as_str().unwrap()).unwrap();
                     let b = PeerId::from_hex(params[1].as_str().unwrap()).unwrap();
                     let a_bullet = params[2].as_i64().unwrap() as u32;
