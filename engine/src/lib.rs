@@ -12,7 +12,7 @@ pub use config::Config;
 pub use engine::Engine;
 pub use serde_json::{json, Value};
 pub use tdn::{
-    prelude::{GroupId, PeerId, PeerKey, SendType},
+    prelude::{GroupId, Peer, PeerId, PeerKey, SendType},
     types::rpc::rpc_response,
 };
 pub use types::*;

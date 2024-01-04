@@ -8,7 +8,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use zroom_engine::{
     json,
     request::{message_channel, run_p2p_channel, run_ws_channel, ChannelMessage},
-    Config, Engine, Error, HandleResult, Handler, PeerId, PeerKey, Result, Value,
+    Config, Engine, Error, HandleResult, Handler, Peer, PeerId, PeerKey, Result, Value,
 };
 
 const TOTAL: u32 = 5;
@@ -94,6 +94,9 @@ impl Handler for ShootHandler {
 
 #[tokio::main]
 async fn main() {
+    std::env::set_var("RUST_LOG", "warn");
+    tracing_subscriber::fmt::init();
+
     // mock 4 players
     let mut prng = ChaChaRng::from_seed([0u8; 32]);
     let server_key = PeerKey::generate(&mut prng);
@@ -101,6 +104,7 @@ async fn main() {
     let player2 = PeerKey::generate(&mut prng);
     let player3 = PeerKey::generate(&mut prng);
     let player4 = PeerKey::generate(&mut prng);
+    let sid = server_key.peer_id();
     let id1 = player1.peer_id();
     let id2 = player2.peer_id();
     let id3 = player3.peer_id();
@@ -111,8 +115,8 @@ async fn main() {
     let opponent4 = vec![id1, id2, id3];
     tokio::spawn(mock_player_with_rpc(player1, opponent1));
     tokio::spawn(mock_player_with_rpc(player2, opponent2));
-    tokio::spawn(mock_player_with_rpc(player3, opponent3));
-    tokio::spawn(mock_player_with_rpc(player4, opponent4));
+    tokio::spawn(mock_player_with_p2p(player3, opponent3, sid));
+    tokio::spawn(mock_player_with_p2p(player4, opponent4, sid));
 
     // running server
     let mut config = Config::default();
@@ -152,13 +156,17 @@ async fn mock_player_with_rpc(player: PeerKey, opponents: Vec<PeerId>) {
     mock_player(player, opponents, in_send, out_recv).await
 }
 
-async fn _mock_player_with_p2p(player: PeerKey, opponents: Vec<PeerId>) {
+async fn mock_player_with_p2p(player: PeerKey, opponents: Vec<PeerId>, sid: PeerId) {
     println!("Player: {:?} with P2P", player.peer_id());
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
     // create p2p channel with message
     let (in_send, in_recv) = message_channel();
-    let out_recv = run_p2p_channel(&player, ROOM, in_recv).await.unwrap();
+    let mut server = Peer::peer(sid);
+    server.socket = "127.0.0.1:7364".parse().unwrap();
+    let out_recv = run_p2p_channel(&player, ROOM, in_recv, server)
+        .await
+        .unwrap();
 
     mock_player(player, opponents, in_send, out_recv).await
 }

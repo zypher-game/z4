@@ -20,6 +20,7 @@ futures-util = { version = "0.3", default-features = false, features = ["sink"],
 
 [dev-dependencies]
 rand_chacha = "0.3"
+tracing-subscriber = "0.3"
 
 [features]
 default = ["request"]

@@ -1,10 +1,10 @@
-use tdn::prelude::{GroupId, RecvType, SendMessage};
+use tdn::prelude::{GroupId, RecvType, SendMessage, SendType};
 use tokio::sync::mpsc::Sender;
 
 use crate::{
     engine::{handle_result, Engine},
     room::ConnectType,
-    types::Result,
+    types::{P2pMessage, Result},
     Handler,
 };
 
@@ -22,10 +22,21 @@ pub async fn handle_p2p<H: Handler>(
             let res = handler.online(peer.id).await?;
 
             if engine.online(gid, peer.id, ConnectType::P2p) {
-                // TODO send.send().await;
+                let _ = send
+                    .send(SendMessage::Group(
+                        gid,
+                        SendType::Result(0, peer, true, false, vec![]),
+                    ))
+                    .await;
             } else {
                 if !engine.has_peer(&peer.id) {
-                    // TODO close the connections
+                    // close the connections
+                    let _ = send
+                        .send(SendMessage::Group(
+                            gid,
+                            SendType::Result(0, peer, false, false, vec![]),
+                        ))
+                        .await;
                 }
             }
 
@@ -42,16 +53,13 @@ pub async fn handle_p2p<H: Handler>(
             let room = engine.get_room(&gid).unwrap(); // safe
             handle_result(room, res, send, None).await;
         }
-        RecvType::Event(peer_id, _data) => {
-            println!("receive group event from {}", peer_id.short_show());
-            // TODO handle params
+        RecvType::Event(peer_id, data) => {
             if engine.is_room_peer(&gid, &peer_id) {
-                // parse method & params
-                let method = "info";
-                let params = vec![];
+                let P2pMessage { method, params } = bincode::deserialize(&data)?;
+                let params = serde_json::from_slice(&params)?;
 
                 let handler = engine.get_mut_handler(&gid).unwrap(); // safe
-                let res = handler.handle(peer_id, method, params).await?;
+                let res = handler.handle(peer_id, &method, params).await?;
 
                 let is_over = res.over;
                 let room = engine.get_room(&gid).unwrap(); // safe

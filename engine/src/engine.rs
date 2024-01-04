@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use tdn::{
-    prelude::{start_with_config_and_key, PeerId, ReceiveMessage, SendMessage, SendType},
+    prelude::{
+        start_with_config_and_key, NetworkType, PeerId, ReceiveMessage, SendMessage, SendType,
+    },
     types::{primitives::vec_check_push, rpc::rpc_response},
 };
 use tokio::sync::mpsc::Sender;
@@ -143,9 +145,12 @@ impl<H: Handler> Engine<H> {
 
         let (peer_addr, send, mut out_recv) =
             start_with_config_and_key(tdn_config, key).await.unwrap();
-        println!("Example: peer id: {:?}", peer_addr);
+        println!("SERVER: peer id: {:?}", peer_addr);
 
         // TODO create scan listen and channel
+        let _ = send
+            .send(SendMessage::Network(NetworkType::AddGroup(1)))
+            .await;
 
         while let Some(message) = out_recv.recv().await {
             match message {
@@ -183,25 +188,27 @@ pub async fn handle_result(
 
     loop {
         if !one.is_empty() {
-            let (peer, method, params) = one.remove(0);
-            let msg = rpc_response(0, &method, params.into(), room.id);
-            let msg_bytes = vec![]; // TODO
+            let (peer, method, raw_params) = one.remove(0);
+            let params = serde_json::to_vec(&raw_params).unwrap_or(vec![]);
+            let msg = P2pMessage { method, params };
+            let p2p_bytes = bincode::serialize(&msg).unwrap(); // safe
+            let rpc_msg = rpc_response(0, &msg.method, raw_params.into(), room.id);
             match room.get(&peer) {
                 ConnectType::P2p => send
                     .send(SendMessage::Group(
                         room.id,
-                        SendType::Event(0, peer, msg_bytes),
+                        SendType::Event(0, peer, p2p_bytes),
                     ))
                     .await
                     .expect("TDN channel closed"),
                 ConnectType::Rpc(uid) => send
-                    .send(SendMessage::Rpc(uid, msg, true))
+                    .send(SendMessage::Rpc(uid, rpc_msg, true))
                     .await
                     .expect("TDN channel closed"),
                 ConnectType::None => {
                     if let Some((p, uid)) = rpc {
                         if p == peer {
-                            send.send(SendMessage::Rpc(uid, msg, false))
+                            send.send(SendMessage::Rpc(uid, rpc_msg, false))
                                 .await
                                 .expect("TDN channel closed");
                         }
@@ -215,27 +222,30 @@ pub async fn handle_result(
 
     loop {
         if !all.is_empty() {
-            let (method, params) = all.remove(0);
-            let msg = rpc_response(0, &method, params.into(), room.id);
-            let msg_bytes = vec![]; // TODO
+            let (method, raw_params) = all.remove(0);
+            let params = serde_json::to_vec(&raw_params).unwrap_or(vec![]);
+            let msg = P2pMessage { method, params };
+            let p2p_bytes = bincode::serialize(&msg).unwrap(); // safe
+            let rpc_msg = rpc_response(0, &msg.method, raw_params.into(), room.id);
             for (peer, c) in room.iter() {
                 match c {
-                    ConnectType::P2p => send
-                        .send(SendMessage::Group(
+                    ConnectType::P2p => {
+                        send.send(SendMessage::Group(
                             room.id,
-                            SendType::Event(0, *peer, msg_bytes.clone()),
+                            SendType::Event(0, *peer, p2p_bytes.clone()),
                         ))
                         .await
-                        .expect("TDN channel closed"),
+                        .expect("TDN channel closed");
+                    }
                     ConnectType::Rpc(uid) => {
-                        send.send(SendMessage::Rpc(*uid, msg.clone(), true))
+                        send.send(SendMessage::Rpc(*uid, rpc_msg.clone(), true))
                             .await
                             .expect("TDN channel closed");
                     }
                     ConnectType::None => {
                         if let Some((p, uid)) = rpc {
                             if p == *peer {
-                                send.send(SendMessage::Rpc(uid, msg.clone(), false))
+                                send.send(SendMessage::Rpc(uid, rpc_msg.clone(), false))
                                     .await
                                     .expect("TDN channel closed");
                             }
@@ -250,26 +260,30 @@ pub async fn handle_result(
     }
 
     if over {
-        let msg = rpc_response(0, "over", Default::default(), room.id);
-        let msg_bytes = vec![]; // TODO
+        let msg = P2pMessage {
+            method: "over".to_owned(),
+            params: vec![],
+        };
+        let p2p_bytes = bincode::serialize(&msg).unwrap(); // safe
+        let rpc_msg = rpc_response(0, &msg.method, Default::default(), room.id);
         for (peer, c) in room.iter() {
             match c {
                 ConnectType::P2p => send
                     .send(SendMessage::Group(
                         room.id,
-                        SendType::Event(0, *peer, msg_bytes.clone()),
+                        SendType::Event(0, *peer, p2p_bytes.clone()),
                     ))
                     .await
                     .expect("TDN channel closed"),
                 ConnectType::Rpc(uid) => {
-                    send.send(SendMessage::Rpc(*uid, msg.clone(), true))
+                    send.send(SendMessage::Rpc(*uid, rpc_msg.clone(), true))
                         .await
                         .expect("TDN channel closed");
                 }
                 ConnectType::None => {
                     if let Some((p, uid)) = rpc {
                         if p == *peer {
-                            send.send(SendMessage::Rpc(uid, msg.clone(), false))
+                            send.send(SendMessage::Rpc(uid, rpc_msg.clone(), false))
                                 .await
                                 .expect("TDN channel closed");
                         }
