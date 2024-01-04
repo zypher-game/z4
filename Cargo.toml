@@ -4,3 +4,11 @@ members = [
   "node",
 ]
 resolver = "2"
+
+[patch.crates-io]
+ark-ff = { git = "https://github.com/arkworks-rs/algebra" }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra" }
+ark-poly = { git = "https://github.com/arkworks-rs/algebra" }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra" }
+ark-bn254 = { git = "https://github.com/arkworks-rs/algebra" }
+ark-ed-on-bn254 = { git = "https://github.com/arkworks-rs/algebra" }

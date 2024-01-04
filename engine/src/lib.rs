@@ -1,5 +1,6 @@
 mod config;
 mod engine;
+mod key;
 mod p2p;
 mod room;
 mod rpc;
@@ -10,6 +11,7 @@ pub mod request;
 
 pub use config::Config;
 pub use engine::Engine;
+pub use key::*;
 pub use serde_json::{json, Value};
 pub use tdn::{
     prelude::{GroupId, Peer, PeerId, PeerKey, SendType},
@@ -49,6 +51,7 @@ pub trait Param: Sized + Send + Default {
     fn from_bytes(bytes: &[u8]) -> Result<Self>;
 }
 
+/// Handle message received from players
 #[async_trait::async_trait]
 pub trait Handler: Send {
     type Param: Param;
@@ -64,7 +67,7 @@ pub trait Handler: Send {
     }
 
     /// create new room scan from chain
-    async fn create(peers: &[PeerId]) -> Self;
+    async fn create(peers: &[(PeerId, PublicKey)]) -> Self;
 
     /// handle message in a room
     async fn handle(
@@ -75,6 +78,7 @@ pub trait Handler: Send {
     ) -> Result<HandleResult<Self::Param>>;
 }
 
+/// Timer tasks when game room started
 #[async_trait::async_trait]
 pub trait Task {
     type H: Handler;

@@ -13,7 +13,7 @@ use crate::{
     room::{ConnectType, Room},
     rpc::handle_rpc,
     types::*,
-    HandleResult, Handler, Param, Task,
+    HandleResult, Handler, Param, PublicKey, Task,
 };
 
 struct HandlerRoom<H: Handler> {
@@ -30,7 +30,7 @@ pub struct Engine<H: Handler> {
     /// rooms which is running
     rooms: HashMap<RoomId, HandlerRoom<H>>,
     /// rooms which is waiting create
-    pending: HashMap<RoomId, Vec<PeerId>>,
+    pending: HashMap<RoomId, Vec<(PeerId, PublicKey)>>,
     /// connected peers
     onlines: HashMap<PeerId, Vec<RoomId>>,
 }
@@ -61,7 +61,7 @@ impl<H: Handler> Engine<H> {
     }
 
     /// add a pending room peer
-    pub fn add_peer(&mut self, id: RoomId, peer: PeerId) {
+    pub fn add_peer(&mut self, id: RoomId, peer: (PeerId, PublicKey)) {
         if let Some(peers) = self.pending.get_mut(&id) {
             vec_check_push(peers, peer);
         }
@@ -71,11 +71,12 @@ impl<H: Handler> Engine<H> {
     pub async fn start_room(&mut self, id: RoomId) {
         if let Some(peers) = self.pending.remove(&id) {
             let handler = H::create(&peers).await;
+            let ids: Vec<PeerId> = peers.iter().map(|(id, _pk)| *id).collect();
             self.rooms.insert(
                 id,
                 HandlerRoom {
                     handler,
-                    room: Room::new(id, &peers),
+                    room: Room::new(id, &ids),
                 },
             );
         }

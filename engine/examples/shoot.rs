@@ -6,12 +6,15 @@ use std::collections::HashMap;
 use tdn::types::primitives::vec_remove_item;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use zroom_engine::{
-    json,
+    generate_keypair, json,
     request::{message_channel, run_p2p_channel, run_ws_channel, ChannelMessage},
-    Config, Engine, Error, HandleResult, Handler, Param, Peer, PeerId, PeerKey, Result, Value,
+    Config, Engine, Error, HandleResult, Handler, Param, Peer, PeerId, PeerKey, PublicKey, Result,
+    SecretKey, Value,
 };
 
-const TOTAL: u32 = 5;
+mod shoot_zk;
+use shoot_zk::*;
+
 const ROOM: u64 = 1;
 
 #[derive(Default)]
@@ -23,7 +26,8 @@ struct ShootPlayer {
 
 #[derive(Default)]
 struct ShootHandler {
-    accounts: HashMap<PeerId, ShootPlayer>,
+    accounts: HashMap<PeerId, (PublicKey, ShootPlayer)>,
+    operations: Vec<ShootOperation>,
 }
 
 #[derive(Default)]
@@ -55,21 +59,27 @@ impl Param for Params {
 impl Handler for ShootHandler {
     type Param = Params;
 
-    async fn create(peers: &[PeerId]) -> Self {
+    async fn create(peers: &[(PeerId, PublicKey)]) -> Self {
         let accounts = peers
             .iter()
-            .map(|id| {
+            .map(|(id, pk)| {
                 (
                     *id,
-                    ShootPlayer {
-                        hp: TOTAL,
-                        bullet: TOTAL,
-                    },
+                    (
+                        *pk,
+                        ShootPlayer {
+                            hp: TOTAL,
+                            bullet: TOTAL,
+                        },
+                    ),
                 )
             })
             .collect();
 
-        Self { accounts }
+        Self {
+            accounts,
+            operations: vec![],
+        }
     }
 
     async fn handle(
@@ -86,20 +96,24 @@ impl Handler for ShootHandler {
                 let target = PeerId::from_hex(value.as_str().unwrap()).unwrap();
 
                 let mut a_bullet = 0;
-                if let Some(account) = self.accounts.get_mut(&player) {
+                let mut a_pk = PublicKey::default();
+                if let Some((pk, account)) = self.accounts.get_mut(&player) {
                     if account.bullet > 0 {
                         account.bullet -= 1;
                         a_bullet = account.bullet;
+                        a_pk = *pk;
                     } else {
                         return Err(Error::Params);
                     }
                 }
 
                 let mut b_hp = 0;
-                if let Some(account) = self.accounts.get_mut(&target) {
+                let mut b_pk = PublicKey::default();
+                if let Some((pk, account)) = self.accounts.get_mut(&target) {
                     if account.hp > 0 {
                         account.hp -= 1;
                         b_hp = account.hp;
+                        b_pk = *pk;
                     }
                 }
 
@@ -118,6 +132,27 @@ impl Handler for ShootHandler {
                         b_hp.into(),
                     ]),
                 );
+
+                // zkp
+                self.operations.push(ShootOperation {
+                    from: a_pk,
+                    to: b_pk,
+                });
+
+                let players: Vec<PublicKey> =
+                    self.accounts.iter().map(|(_, (pk, _))| *pk).collect();
+
+                let mut prng = ChaChaRng::from_seed([0u8; 32]);
+                let prover_params = gen_prover_params(&players, &self.operations).unwrap();
+                println!("SERVER: zk key ok, op: {}", self.operations.len());
+
+                let (proof, results) =
+                    prove_shoot(&mut prng, &prover_params, &players, &self.operations).unwrap();
+                println!("SERVER: zk prove ok, op: {}", self.operations.len());
+                let verifier_params = get_verifier_params(prover_params);
+                verify_shoot(&verifier_params, &results, &proof).unwrap();
+                println!("SERVER: zk verify ok, op: {}", self.operations.len());
+
                 return Ok(result);
             }
         }
@@ -134,10 +169,14 @@ async fn main() {
     // mock 4 players
     let mut prng = ChaChaRng::from_seed([0u8; 32]);
     let server_key = PeerKey::generate(&mut prng);
-    let player1 = PeerKey::generate(&mut prng);
-    let player2 = PeerKey::generate(&mut prng);
-    let player3 = PeerKey::generate(&mut prng);
-    let player4 = PeerKey::generate(&mut prng);
+    let player1 = PeerKey::generate(&mut prng); // for evm-chain
+    let player2 = PeerKey::generate(&mut prng); // for evm-chain
+    let player3 = PeerKey::generate(&mut prng); // for evm-chain
+    let player4 = PeerKey::generate(&mut prng); // for evm-chain
+    let (sk1, pk1) = generate_keypair(&mut prng); // for player
+    let (sk2, pk2) = generate_keypair(&mut prng); // for player
+    let (sk3, pk3) = generate_keypair(&mut prng); // for player
+    let (sk4, pk4) = generate_keypair(&mut prng); // for player
     let sid = server_key.peer_id();
     let id1 = player1.peer_id();
     let id2 = player2.peer_id();
@@ -147,10 +186,10 @@ async fn main() {
     let opponent2 = vec![id1, id3, id4];
     let opponent3 = vec![id1, id2, id4];
     let opponent4 = vec![id1, id2, id3];
-    tokio::spawn(mock_player_with_rpc(player1, opponent1));
-    tokio::spawn(mock_player_with_rpc(player2, opponent2));
-    tokio::spawn(mock_player_with_p2p(player3, opponent3, sid));
-    tokio::spawn(mock_player_with_p2p(player4, opponent4, sid));
+    tokio::spawn(mock_player_with_rpc(player1, opponent1, sk1));
+    tokio::spawn(mock_player_with_rpc(player2, opponent2, sk2));
+    tokio::spawn(mock_player_with_p2p(player3, opponent3, sid, sk3));
+    tokio::spawn(mock_player_with_p2p(player4, opponent4, sid, sk4));
 
     // running server
     let mut config = Config::default();
@@ -169,15 +208,15 @@ async fn main() {
 
     let mut engine = Engine::<ShootHandler>::init(config);
     engine.add_pending(ROOM);
-    engine.add_peer(ROOM, id1);
-    engine.add_peer(ROOM, id2);
-    engine.add_peer(ROOM, id3);
-    engine.add_peer(ROOM, id4);
+    engine.add_peer(ROOM, (id1, pk1));
+    engine.add_peer(ROOM, (id2, pk2));
+    engine.add_peer(ROOM, (id3, pk3));
+    engine.add_peer(ROOM, (id4, pk4));
     engine.start_room(ROOM).await;
     let _ = engine.run().await;
 }
 
-async fn mock_player_with_rpc(player: PeerKey, opponents: Vec<PeerId>) {
+async fn mock_player_with_rpc(player: PeerKey, opponents: Vec<PeerId>, _sk: SecretKey) {
     println!("Player: {:?} with RPC", player.peer_id());
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
@@ -190,7 +229,12 @@ async fn mock_player_with_rpc(player: PeerKey, opponents: Vec<PeerId>) {
     mock_player(player, opponents, in_send, out_recv).await
 }
 
-async fn mock_player_with_p2p(player: PeerKey, opponents: Vec<PeerId>, sid: PeerId) {
+async fn mock_player_with_p2p(
+    player: PeerKey,
+    opponents: Vec<PeerId>,
+    sid: PeerId,
+    _sk: SecretKey,
+) {
     println!("Player: {:?} with P2P", player.peer_id());
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
