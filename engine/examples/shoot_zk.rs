@@ -68,6 +68,7 @@ pub(crate) fn build_cs(
     }
 
     for input in inputs {
+        // TODO sub cs for all players
         let index_from = *indexs.get(&input.from).unwrap();
         let index_to = *indexs.get(&input.to).unwrap();
 

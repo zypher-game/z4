@@ -3,10 +3,10 @@ use serde_json::Value;
 
 abigen!(RoomMarket, "public/ABI/RoomMarket.json");
 
-const LOCALHOST_ADDRESS: &str = include_str!("../public/localhost.json");
-const MUMBAI_ADDRESS: &str = include_str!("../public/mumbai.json");
-const FUJI_ADDRESS: &str = include_str!("../public/fuji.json");
-const ARBITRUMGOERLI_ADDRESS: &str = include_str!("../public/arbitrumgoerli.json");
+const LOCALHOST_ADDRESS: &str = include_str!("../../public/localhost.json");
+const MUMBAI_ADDRESS: &str = include_str!("../../public/localhost.json");
+const FUJI_ADDRESS: &str = include_str!("../../public/localhost.json");
+const ARBITRUMGOERLI_ADDRESS: &str = include_str!("../../public/localhost.json");
 
 /// Default network
 pub const DEFAULT_NETWORK: Network = Network::Mumbai;

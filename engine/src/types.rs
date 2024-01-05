@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::{PeerId, PublicKey};
+
 #[derive(Debug)]
 pub enum Error {
     /// Invalid params
@@ -23,9 +25,8 @@ pub struct P2pMessage<'a> {
 }
 
 pub enum ChainMessage {
-    CreateRoom,
-    JoinRoom,
-    StartRoom,
+    StartRoom(RoomId, Vec<PeerId>, Vec<PublicKey>),
+    AcceptRoom(RoomId, PeerId),
     Reprove,
 }
 

@@ -5,13 +5,14 @@ use tdn::{
     },
     types::{primitives::vec_check_push, rpc::rpc_response},
 };
-use tokio::sync::mpsc::Sender;
+use tokio::{select, sync::mpsc::Sender};
 
 use crate::{
     config::Config,
     p2p::handle_p2p,
     room::{ConnectType, Room},
     rpc::handle_rpc,
+    scan::chain_channel,
     types::*,
     HandleResult, Handler, Param, PublicKey, Task,
 };
@@ -148,31 +149,67 @@ impl<H: Handler> Engine<H> {
             start_with_config_and_key(tdn_config, key).await.unwrap();
         println!("SERVER: peer id: {:?}", peer_addr);
 
-        // TODO create scan listen and channel
-        let _ = send
-            .send(SendMessage::Network(NetworkType::AddGroup(1)))
-            .await;
+        let (_chain_send, mut chain_recv) = chain_channel();
+        // listen(chain_send);
 
-        while let Some(message) = out_recv.recv().await {
-            match message {
-                ReceiveMessage::Group(gid, msg) => {
-                    if !self.has_room(&gid) {
-                        continue;
+        loop {
+            let work = select! {
+                w = async {
+                    chain_recv.recv().await.map(FutureMessage::Chain)
+                } => w,
+                w = async {
+                    out_recv.recv().await.map(FutureMessage::Network)
+                } => w,
+            };
+
+            match work {
+                Some(FutureMessage::Network(message)) => match message {
+                    ReceiveMessage::Group(gid, msg) => {
+                        if !self.has_room(&gid) {
+                            continue;
+                        }
+                        let _ = handle_p2p(&mut self, &send, gid, msg).await;
                     }
-                    let _ = handle_p2p(&mut self, &send, gid, msg).await;
-                }
-                ReceiveMessage::Rpc(uid, params, is_ws) => {
-                    let _ = handle_rpc(&mut self, &send, uid, params, is_ws).await;
-                }
-                ReceiveMessage::NetworkLost => {
-                    println!("No network connections");
-                }
-                ReceiveMessage::Own(..) => {}
+                    ReceiveMessage::Rpc(uid, params, is_ws) => {
+                        let _ = handle_rpc(&mut self, &send, uid, params, is_ws).await;
+                    }
+                    ReceiveMessage::NetworkLost => {
+                        println!("No network connections");
+                    }
+                    ReceiveMessage::Own(..) => {}
+                },
+                Some(FutureMessage::Chain(message)) => match message {
+                    ChainMessage::StartRoom(_rid, _players, _pubkeys) => {
+                        // TODO create pending room
+
+                        // TODO join the first player
+                    }
+                    ChainMessage::AcceptRoom(rid, sequencer) => {
+                        if sequencer == peer_addr {
+                            // if mine, create room
+                            // TODO
+                            let _ = send
+                                .send(SendMessage::Network(NetworkType::AddGroup(rid)))
+                                .await;
+                        } else {
+                            // TODO if not mine, delete it.
+                        }
+                    }
+                    ChainMessage::Reprove => {
+                        // TODO
+                    }
+                },
+                None => break,
             }
         }
 
         Ok(())
     }
+}
+
+enum FutureMessage {
+    Network(ReceiveMessage),
+    Chain(ChainMessage),
 }
 
 pub async fn handle_result<P: Param>(

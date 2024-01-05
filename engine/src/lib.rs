@@ -1,9 +1,14 @@
+#[macro_use]
+extern crate tracing;
+
 mod config;
+mod contracts;
 mod engine;
 mod key;
 mod p2p;
 mod room;
 mod rpc;
+mod scan;
 mod types;
 
 #[cfg(feature = "request")]

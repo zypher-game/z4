@@ -1,3 +1,4 @@
+use ark_serialize::{CanonicalSerialize, Compress};
 use rand_chacha::{
     rand_core::{RngCore, SeedableRng},
     ChaChaRng,
@@ -177,6 +178,14 @@ async fn main() {
     let (sk2, pk2) = generate_keypair(&mut prng); // for player
     let (sk3, pk3) = generate_keypair(&mut prng); // for player
     let (sk4, pk4) = generate_keypair(&mut prng); // for player
+    let mut pk1_bytes = vec![];
+    let mut pk2_bytes = vec![];
+    let mut pk3_bytes = vec![];
+    let mut pk4_bytes = vec![];
+    let _ = pk1.serialize_with_mode(&mut pk1_bytes, Compress::Yes);
+    let _ = pk2.serialize_with_mode(&mut pk2_bytes, Compress::Yes);
+    let _ = pk3.serialize_with_mode(&mut pk3_bytes, Compress::Yes);
+    let _ = pk4.serialize_with_mode(&mut pk4_bytes, Compress::Yes);
     let sid = server_key.peer_id();
     let id1 = player1.peer_id();
     let id2 = player2.peer_id();

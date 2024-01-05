@@ -1,40 +1,36 @@
-use anyhow::{anyhow, Result};
-use ethers::{
-    abi::{decode, ParamType, Token},
-    prelude::*,
-    utils::keccak256,
-};
-use serde::Deserialize;
-use std::collections::HashMap;
+use anyhow::Result;
+use ethers::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::{sync::mpsc::UnboundedSender, time::timeout};
+use tokio::{
+    sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+    time::timeout,
+};
 
-use crate::contracts::{RoomMarket, Network};
-use crate::ChainMessage;
+use crate::contracts::{Network, RoomMarket};
+use crate::{ChainMessage, PeerId, PublicKey, RoomId};
 
 const TIMEOUT: u64 = 10;
 const DELAY: u64 = 3;
 
-#[allow(non_snake_case)]
-#[derive(Clone, Debug, EthEvent)]
-struct CreateRoom {
-    roomId: U256,
-    player: Address
-}
-
-#[allow(non_snake_case)]
-#[derive(Clone, Debug, EthEvent)]
-struct JoinRoom {
-    roomId: U256,
-    player: Address
-}
-
-#[allow(non_snake_case)]
 #[derive(Clone, Debug, EthEvent)]
 struct StartRoom {
-    roomId: U256,
-    sequencer: Address
+    room: U256,
+    players: Vec<Address>,
+    pubkeys: Vec<H256>,
+}
+
+#[derive(Clone, Debug, EthEvent)]
+struct AcceptRoom {
+    room: U256,
+    sequencer: Address,
+}
+
+pub fn chain_channel() -> (
+    UnboundedSender<ChainMessage>,
+    UnboundedReceiver<ChainMessage>,
+) {
+    unbounded_channel()
 }
 
 pub async fn listen(
@@ -51,7 +47,7 @@ pub async fn listen(
     let mut next_index = 0;
     loop {
         if let Ok(start_block) = clients[next_index].get_block_number().await {
-            let mut start_block = start_block.as_u64() - DELAY;
+            let start_block = start_block.as_u64() - DELAY;
 
             let _ = running(
                 start_block,
@@ -116,35 +112,17 @@ pub async fn running(
             (start + 1, end)
         };
 
-        let create_room = markets[i]
-            .event::<CreateRoom>()
-            .from_block(from)
-            .to_block(to);
-
-        let join_room = markets[i]
-            .event::<JoinRoom>()
-            .from_block(from)
-            .to_block(to);
-
         let start_room = markets[i]
             .event::<StartRoom>()
             .from_block(from)
             .to_block(to);
 
-        let creates = if let Ok(res) = timeout(Duration::from_secs(TIMEOUT), create_room.query()).await {
-            res
-        } else {
-            warn!("Timeout: {}", i);
-            continue;
-        };
-        let joins =
-            if let Ok(res) = timeout(Duration::from_secs(TIMEOUT), join_room.query()).await {
-                res
-            } else {
-                warn!("Timeout: {}", i);
-                continue;
-            };
-        let starts =
+        let accept_room = markets[i]
+            .event::<AcceptRoom>()
+            .from_block(from)
+            .to_block(to);
+
+        let starts_room =
             if let Ok(res) = timeout(Duration::from_secs(TIMEOUT), start_room.query()).await {
                 res
             } else {
@@ -152,24 +130,45 @@ pub async fn running(
                 continue;
             };
 
-        if let Ok(creates) = creates {
-            for create in creates {
-                info!("scan create: {} {:?}", create.roomId, create.player);
-                sender.send(ChainMessage::CreateRoom(create.roomId, create.player))?;
-            }
-        }
+        let accepts_room =
+            if let Ok(res) = timeout(Duration::from_secs(TIMEOUT), accept_room.query()).await {
+                res
+            } else {
+                warn!("Timeout: {}", i);
+                continue;
+            };
 
-        if let Ok(joins) = joins {
-            for join in joins {
-                info!("scan join: {} {:?}", join.roomId, join.player);
-                sender.send(ChainMessage::JoinRoom(join.roomId, join.player))?;
-            }
-        }
-
-        if let Ok(starts) = starts {
+        if let Ok(starts) = starts_room {
             for start in starts {
-                info!("scan start: {} {:?}", start.roomId, start.sequencer);
-                sender.send(ChainMessage::StartRoom(start.roomId, start.sequencer))?;
+                let StartRoom {
+                    room,
+                    players,
+                    pubkeys,
+                } = start;
+                info!("scan start: {} {} {}", room, players.len(), pubkeys.len());
+                match (parse_room(room), parse_peers(players), parse_pks(pubkeys)) {
+                    (Some(rid), pids, pks) => {
+                        if pids.len() == pks.len() {
+                            sender.send(ChainMessage::StartRoom(rid, pids, pks))?;
+                        }
+                    }
+                    _ => continue,
+                }
+
+                //
+            }
+        }
+
+        if let Ok(accepts) = accepts_room {
+            for accept in accepts {
+                let AcceptRoom { room, sequencer } = accept;
+                info!("scan accept: {} {}", room, sequencer);
+                match (parse_room(room), parse_peer(sequencer)) {
+                    (Some(rid), Some(pid)) => {
+                        sender.send(ChainMessage::AcceptRoom(rid, pid))?;
+                    }
+                    _ => continue,
+                }
             }
         }
 
@@ -178,4 +177,41 @@ pub async fn running(
         // waiting 1s
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
+}
+
+#[inline]
+fn parse_room(cid: U256) -> Option<RoomId> {
+    todo!()
+}
+
+#[inline]
+fn parse_peer(cpid: Address) -> Option<PeerId> {
+    todo!()
+}
+
+#[inline]
+fn parse_peers(cpids: Vec<Address>) -> Vec<PeerId> {
+    let mut res = vec![];
+    for cpid in cpids {
+        if let Some(p) = parse_peer(cpid) {
+            res.push(p)
+        }
+    }
+    res
+}
+
+#[inline]
+fn parse_pk(cpk: H256) -> Option<PublicKey> {
+    todo!()
+}
+
+#[inline]
+fn parse_pks(cpks: Vec<H256>) -> Vec<PublicKey> {
+    let mut res = vec![];
+    for cpk in cpks {
+        if let Some(p) = parse_pk(cpk) {
+            res.push(p)
+        }
+    }
+    res
 }

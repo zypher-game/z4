@@ -29,6 +29,7 @@ zplonk = { git = "ssh://git@github.com/zypher-game/uzkge.git" }
 rand_chacha = "0.3"
 tracing-subscriber = "0.3"
 ark-bn254 = "0.4"
+ark-serialize = "0.4"
 
 [features]
 default = ["request"]
