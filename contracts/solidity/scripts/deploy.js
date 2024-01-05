@@ -4,23 +4,49 @@
 // You can also run a script with `npx hardhat run <script>`. If you do that, Hardhat
 // will compile your contracts, add the Hardhat Runtime Environment's members to the
 // global scope, and execute the script.
-const hre = require("hardhat");
+const { ethers, upgrades, network } = require("hardhat");
+const { attachContract, sleep } = require("./address_utils.js");
+const { writeFile } = require('fs');
+
+async function deployContractWithProxy(name, params=[]) {
+  const Factory = await ethers.getContractFactory(name);
+  //  use upgradeable deploy, then contracts can be upgraded success, otherwise will get error about ERC 1967 proxy
+  const contract = await upgrades.deployProxy(Factory, params);
+  await contract.deployed();
+  console.log(`${name} address: ${contract.address}`);
+
+  return contract;
+}
+
+async function deployContract(name, params=[]) {
+  const Factory = await ethers.getContractFactory(name);
+  const contract = await Factory.deploy(...params);
+  const address = await contract.getAddress();
+  console.log(`${name} address: ${address}`);
+
+  return address;
+}
+
+async function deploy() {
+  const roomMarket = await deployContract("RoomMarket");
+
+  const addresses = {
+    RoomMarket: roomMarket
+  };
+  const filename = `../../public/${network.name}.json`;
+  writeFile(
+    filename,
+    JSON.stringify(addresses, null, 2),
+    function(err) {
+      if (err) {
+        console.log(err);
+      }
+    });
+  console.log(`Save to ${filename}`);
+}
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
-  const unlockTime = currentTimestampInSeconds + ONE_YEAR_IN_SECS;
-
-  const lockedAmount = hre.ethers.utils.parseEther("1");
-
-  const Lock = await hre.ethers.getContractFactory("Lock");
-  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
-
-  await lock.deployed();
-
-  console.log(
-    `Lock with 1 ETH and unlock timestamp ${unlockTime} deployed to ${lock.address}`
-  );
+  await deploy();
 }
 
 // We recommend this pattern to be able to use async/await everywhere

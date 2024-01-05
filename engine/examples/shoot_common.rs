@@ -1,38 +1,43 @@
-use ark_serialize::{CanonicalSerialize, Compress};
-use rand_chacha::{
-    rand_core::{RngCore, SeedableRng},
-    ChaChaRng,
-};
+use ark_bn254::Fr;
+use ark_ed_on_bn254::EdwardsAffine;
+use ark_std::rand::{CryptoRng, RngCore, SeedableRng};
+use rand_chacha::ChaChaRng;
 use std::collections::HashMap;
 use tdn::types::primitives::vec_remove_item;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use zplonk::{
+    params::{load_lagrange_params, load_srs_params, ProverParams, VerifierParams},
+    poly_commit::kzg_poly_commitment::KZGCommitmentSchemeBN254,
+    turboplonk::{
+        constraint_system::{ConstraintSystem, TurboCS, VarIndex},
+        indexer::{indexer_with_lagrange, PlonkProof},
+        prover::prover_with_lagrange,
+        verifier::verifier,
+    },
+    utils::transcript::Transcript,
+};
 use zroom_engine::{
-    generate_keypair, json,
+    json,
     request::{message_channel, run_p2p_channel, run_ws_channel, ChannelMessage},
-    Config, Engine, Error, HandleResult, Handler, Param, Peer, PeerId, PeerKey, PublicKey, Result,
+    Error, HandleResult, Handler, Param, Peer, PeerId, PeerKey, PublicKey, Result, RoomId,
     SecretKey, Value,
 };
 
-mod shoot_zk;
-use shoot_zk::*;
-
-const ROOM: u64 = 1;
-
 #[derive(Default)]
-struct ShootPlayer {
+pub struct ShootPlayer {
     // Hit Points or Health Points
     hp: u32,
     bullet: u32,
 }
 
 #[derive(Default)]
-struct ShootHandler {
+pub struct ShootHandler {
     accounts: HashMap<PeerId, (PublicKey, ShootPlayer)>,
     operations: Vec<ShootOperation>,
 }
 
 #[derive(Default)]
-struct Params(Vec<Value>);
+pub struct Params(Vec<Value>);
 
 impl Param for Params {
     fn to_value(self) -> Value {
@@ -115,6 +120,8 @@ impl Handler for ShootHandler {
                         account.hp -= 1;
                         b_hp = account.hp;
                         b_pk = *pk;
+                    } else {
+                        return Err(Error::Params);
                     }
                 }
 
@@ -162,83 +169,26 @@ impl Handler for ShootHandler {
     }
 }
 
-#[tokio::main]
-async fn main() {
-    std::env::set_var("RUST_LOG", "warn");
-    tracing_subscriber::fmt::init();
-
-    // mock 4 players
-    let mut prng = ChaChaRng::from_seed([0u8; 32]);
-    let server_key = PeerKey::generate(&mut prng);
-    let player1 = PeerKey::generate(&mut prng); // for evm-chain
-    let player2 = PeerKey::generate(&mut prng); // for evm-chain
-    let player3 = PeerKey::generate(&mut prng); // for evm-chain
-    let player4 = PeerKey::generate(&mut prng); // for evm-chain
-    let (sk1, pk1) = generate_keypair(&mut prng); // for player
-    let (sk2, pk2) = generate_keypair(&mut prng); // for player
-    let (sk3, pk3) = generate_keypair(&mut prng); // for player
-    let (sk4, pk4) = generate_keypair(&mut prng); // for player
-    let mut pk1_bytes = vec![];
-    let mut pk2_bytes = vec![];
-    let mut pk3_bytes = vec![];
-    let mut pk4_bytes = vec![];
-    let _ = pk1.serialize_with_mode(&mut pk1_bytes, Compress::Yes);
-    let _ = pk2.serialize_with_mode(&mut pk2_bytes, Compress::Yes);
-    let _ = pk3.serialize_with_mode(&mut pk3_bytes, Compress::Yes);
-    let _ = pk4.serialize_with_mode(&mut pk4_bytes, Compress::Yes);
-    let sid = server_key.peer_id();
-    let id1 = player1.peer_id();
-    let id2 = player2.peer_id();
-    let id3 = player3.peer_id();
-    let id4 = player4.peer_id();
-    let opponent1 = vec![id2, id3, id4];
-    let opponent2 = vec![id1, id3, id4];
-    let opponent3 = vec![id1, id2, id4];
-    let opponent4 = vec![id1, id2, id3];
-    tokio::spawn(mock_player_with_rpc(player1, opponent1, sk1));
-    tokio::spawn(mock_player_with_rpc(player2, opponent2, sk2));
-    tokio::spawn(mock_player_with_p2p(player3, opponent3, sid, sk3));
-    tokio::spawn(mock_player_with_p2p(player4, opponent4, sid, sk4));
-
-    // running server
-    let mut config = Config::default();
-    config.ws_port = Some(8000);
-    config.secret_key = hex::encode(server_key.to_db_bytes());
-    let mut accounts = HashMap::new();
-    for id in vec![id1, id2, id3, id4] {
-        accounts.insert(
-            id,
-            ShootPlayer {
-                hp: TOTAL,
-                bullet: TOTAL,
-            },
-        );
-    }
-
-    let mut engine = Engine::<ShootHandler>::init(config);
-    engine.add_pending(ROOM);
-    engine.add_peer(ROOM, (id1, pk1));
-    engine.add_peer(ROOM, (id2, pk2));
-    engine.add_peer(ROOM, (id3, pk3));
-    engine.add_peer(ROOM, (id4, pk4));
-    engine.start_room(ROOM).await;
-    let _ = engine.run().await;
-}
-
-async fn mock_player_with_rpc(player: PeerKey, opponents: Vec<PeerId>, _sk: SecretKey) {
+pub async fn mock_player_with_rpc(
+    room_id: RoomId,
+    player: PeerKey,
+    opponents: Vec<PeerId>,
+    _sk: SecretKey,
+) {
     println!("Player: {:?} with RPC", player.peer_id());
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
     // create ws channel with message
     let (in_send, in_recv) = message_channel::<Params>();
-    let out_recv = run_ws_channel(&player, ROOM, in_recv, "ws://127.0.0.1:8000")
+    let out_recv = run_ws_channel(&player, room_id, in_recv, "ws://127.0.0.1:8000")
         .await
         .unwrap();
 
-    mock_player(player, opponents, in_send, out_recv).await
+    mock_player(room_id, player, opponents, in_send, out_recv).await
 }
 
-async fn mock_player_with_p2p(
+pub async fn mock_player_with_p2p(
+    room_id: RoomId,
     player: PeerKey,
     opponents: Vec<PeerId>,
     sid: PeerId,
@@ -251,14 +201,15 @@ async fn mock_player_with_p2p(
     let (in_send, in_recv) = message_channel::<Params>();
     let mut server = Peer::peer(sid);
     server.socket = "127.0.0.1:7364".parse().unwrap();
-    let out_recv = run_p2p_channel(&player, ROOM, in_recv, server)
+    let out_recv = run_p2p_channel(&player, room_id, in_recv, server)
         .await
         .unwrap();
 
-    mock_player(player, opponents, in_send, out_recv).await
+    mock_player(room_id, player, opponents, in_send, out_recv).await
 }
 
 async fn mock_player(
+    room_id: RoomId,
     player: PeerKey,
     mut opponents: Vec<PeerId>,
     in_send: UnboundedSender<ChannelMessage<Params>>,
@@ -295,7 +246,7 @@ async fn mock_player(
         match work {
             Some(Work::Shoot(someone)) => {
                 let params = Params(vec![json!(my_id.to_hex()), json!(someone.to_hex())]);
-                in_send.send((ROOM, "shoot".to_owned(), params)).unwrap();
+                in_send.send((room_id, "shoot".to_owned(), params)).unwrap();
             }
             Some(Work::Shooted((_room, method, params))) => match method.as_str() {
                 "shoot" => {
@@ -349,4 +300,175 @@ async fn mock_player(
         "PLAYER: {:?} game over!, HP: {}, BULLET: {}",
         my_id, my_state.hp, my_state.bullet
     );
+}
+
+//////// ------- ZK -------- ////
+
+#[derive(Clone)]
+pub struct ShootOperation {
+    pub from: EdwardsAffine,
+    pub to: EdwardsAffine,
+}
+
+pub struct ShootResult {
+    pub player: EdwardsAffine,
+    pub hp: u32,
+    pub bullet: u32,
+}
+
+pub struct ShootResultVar {
+    pub p_x: VarIndex,
+    pub p_y: VarIndex,
+    pub hp: VarIndex,
+    pub bullet: VarIndex,
+    pub r_hp: u32,
+    pub r_bullet: u32,
+}
+
+pub const TOTAL: u32 = 5;
+const PLONK_PROOF_TRANSCRIPT: &[u8] = b"Plonk shoot Proof";
+const N_TRANSCRIPT: &[u8] = b"Number of players";
+
+pub(crate) fn build_cs(
+    players: &[EdwardsAffine],
+    inputs: &[ShootOperation],
+) -> (TurboCS<Fr>, Vec<ShootResult>) {
+    let mut cs = TurboCS::new();
+
+    let mut indexs: HashMap<EdwardsAffine, usize> = HashMap::new();
+    let mut results: Vec<ShootResultVar> = vec![];
+    let hp = cs.new_variable(Fr::from(TOTAL));
+    let bullet = cs.new_variable(Fr::from(TOTAL));
+
+    for p in players {
+        let p_x = cs.new_variable(p.x);
+        let p_y = cs.new_variable(p.y);
+        let r = ShootResultVar {
+            p_x,
+            p_y,
+            hp,
+            bullet,
+            r_hp: TOTAL,
+            r_bullet: TOTAL,
+        };
+        let index = results.len();
+        indexs.insert(*p, index);
+        results.push(r);
+    }
+
+    for input in inputs {
+        // TODO sub cs for all players
+        let index_from = *indexs.get(&input.from).unwrap();
+        let index_to = *indexs.get(&input.to).unwrap();
+
+        let bullet_var = results[index_from].bullet;
+        let hp_var = results[index_to].hp;
+
+        let new_bullet = cs.sub(bullet_var, cs.one_var());
+        let new_hp = cs.sub(hp_var, cs.one_var());
+
+        results[index_from].bullet = new_bullet;
+        results[index_to].hp = new_hp;
+
+        results[index_from].r_bullet -= 1;
+        results[index_to].r_hp -= 1;
+    }
+
+    let mut publics = vec![];
+    for r in results {
+        cs.prepare_pi_variable(r.p_x);
+        cs.prepare_pi_variable(r.p_y);
+        cs.prepare_pi_variable(r.bullet);
+        cs.prepare_pi_variable(r.hp);
+
+        publics.push(ShootResult {
+            player: EdwardsAffine::new(cs.witness[r.p_x], cs.witness[r.p_y]),
+            bullet: r.r_bullet,
+            hp: r.r_hp,
+        });
+    }
+
+    cs.pad();
+
+    (cs, publics)
+}
+
+pub fn gen_prover_params(
+    players: &[EdwardsAffine],
+    operations: &[ShootOperation],
+) -> Result<ProverParams> {
+    let (cs, _) = build_cs(players, operations);
+
+    let cs_size = cs.size();
+    let pcs = load_srs_params(cs_size)?;
+    let lagrange_pcs = load_lagrange_params(cs_size);
+
+    let prover_params = indexer_with_lagrange(&cs, &pcs, lagrange_pcs.as_ref(), None).unwrap();
+
+    Ok(ProverParams {
+        pcs,
+        lagrange_pcs,
+        cs,
+        prover_params,
+    })
+}
+
+pub fn get_verifier_params(prover_params: ProverParams) -> VerifierParams {
+    VerifierParams::from(prover_params)
+}
+
+pub fn prove_shoot<R: CryptoRng + RngCore>(
+    prng: &mut R,
+    prover_params: &ProverParams,
+    players: &[EdwardsAffine],
+    inputs: &[ShootOperation],
+) -> Result<(PlonkProof<KZGCommitmentSchemeBN254>, Vec<ShootResult>)> {
+    let n = players.len();
+
+    let (mut cs, publics) = build_cs(players, inputs);
+    let witness = cs.get_and_clear_witness();
+
+    let mut transcript = Transcript::new(PLONK_PROOF_TRANSCRIPT);
+    transcript.append_u64(N_TRANSCRIPT, n as u64);
+
+    let proof = prover_with_lagrange(
+        prng,
+        &mut transcript,
+        &prover_params.pcs,
+        prover_params.lagrange_pcs.as_ref(),
+        &cs,
+        &prover_params.prover_params,
+        &witness,
+    )?;
+
+    Ok((proof, publics))
+}
+
+pub fn verify_shoot(
+    verifier_params: &VerifierParams,
+    publics: &[ShootResult],
+    proof: &PlonkProof<KZGCommitmentSchemeBN254>,
+) -> Result<()> {
+    let n = publics.len();
+
+    let mut transcript = Transcript::new(PLONK_PROOF_TRANSCRIPT);
+    transcript.append_u64(N_TRANSCRIPT, n as u64);
+
+    let mut online_inputs = vec![];
+
+    for p in publics.iter() {
+        online_inputs.push(p.player.x);
+        online_inputs.push(p.player.y);
+        online_inputs.push(Fr::from(p.bullet));
+        online_inputs.push(Fr::from(p.hp));
+    }
+
+    Ok(verifier(
+        &mut transcript,
+        &verifier_params.shrunk_vk,
+        &verifier_params.shrunk_cs,
+        &verifier_params.verifier_params,
+        &online_inputs,
+        proof,
+    )?)
 }

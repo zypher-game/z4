@@ -105,7 +105,7 @@ pub async fn running(
         if end > start && end - start > 200 {
             end = start + 200;
         }
-        info!("Scan {} from {} to {}", i, start, end);
+        debug!("Scan {} from {} to {}", i, start, end);
 
         let (from, to) = if start > end {
             (end, start)

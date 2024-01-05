@@ -6,6 +6,7 @@ mod contracts;
 mod engine;
 mod key;
 mod p2p;
+mod pool;
 mod room;
 mod rpc;
 mod scan;
@@ -15,6 +16,7 @@ mod types;
 pub mod request;
 
 pub use config::Config;
+pub use contracts::*;
 pub use engine::Engine;
 pub use key::*;
 pub use serde_json::{json, Value};
@@ -85,7 +87,7 @@ pub trait Handler: Send {
 
 /// Timer tasks when game room started
 #[async_trait::async_trait]
-pub trait Task {
+pub trait Task: Send {
     type H: Handler;
 
     fn timer(&self) -> u64;

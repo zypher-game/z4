@@ -1,20 +1,24 @@
-use ethers::prelude::{Http, Provider, Wallet};
+use ethers::prelude::{Http, LocalWallet, Provider, SignerMiddleware};
 use std::{path::PathBuf, sync::Arc};
 use tdn::prelude::{Config as TdnConfig, PeerKey};
 
-use crate::{
-    contracts::{Network, NetworkConfig},
-    types::Result,
-};
+use crate::contracts::{Network, NetworkConfig};
 
+/// config of engine
 #[derive(Default)]
 pub struct Config {
+    /// default groups
+    pub groups: Vec<u64>,
+    /// the server secret key (SECP256K1)
     pub secret_key: String,
-    pub chain_rpcs: Vec<String>,
+    /// the server websocket port
     pub ws_port: Option<u16>,
+    /// the server rpc port
     pub http_port: u16,
-    pub network: String,
-    pub rpcs: Vec<String>,
+    /// the chain network name
+    pub chain_network: String,
+    /// the chain rpcs
+    pub chain_rpcs: Vec<String>,
 }
 
 impl Config {
@@ -25,6 +29,7 @@ impl Config {
             None => None,
         };
         config.rpc_http = Some(format!("0.0.0.0:{}", self.http_port).parse().unwrap());
+        config.group_ids = self.groups.clone();
         // TODO boostrap seed
 
         let sk_str = self.secret_key.trim_start_matches("0x");
@@ -36,25 +41,38 @@ impl Config {
         (config, key)
     }
 
-    pub fn to_scan(&self) -> Result<(Vec<Arc<Provider<Http>>>, Network)> {
-        let network = Network::from_str(&self.network);
+    pub async fn to_chain(
+        &self,
+    ) -> Option<(
+        Vec<Arc<Provider<Http>>>,
+        SignerMiddleware<Arc<Provider<Http>>, LocalWallet>,
+        Network,
+    )> {
+        if self.chain_network.is_empty() {
+            return None;
+        }
+
+        let network = Network::from_str(&self.chain_network);
         let nc = NetworkConfig::from(network);
-        let rpcs = if self.rpcs.is_empty() {
-            &self.rpcs
-        } else {
+        let rpcs = if self.chain_rpcs.is_empty() {
             &nc.rpc_urls
+        } else {
+            &self.chain_rpcs
         };
         let providers: Vec<_> = rpcs
             .iter()
             .map(|rpc| Arc::new(Provider::<Http>::try_from(rpc).unwrap()))
             .collect();
+        if providers.is_empty() {
+            panic!("NO RPCS");
+        }
 
-        Ok((providers, network))
-    }
+        let signer = LocalWallet::from_bytes(&hex::decode(&self.secret_key).unwrap()).unwrap();
+        let signer_provider =
+            SignerMiddleware::new_with_provider_chain(providers[0].clone(), signer)
+                .await
+                .unwrap();
 
-    pub fn _to_pool(&self) -> Result<()> {
-        let _signer = Wallet::from_bytes(&hex::decode(&self.secret_key)?)?;
-
-        Ok(())
+        Some((providers, signer_provider, network))
     }
 }

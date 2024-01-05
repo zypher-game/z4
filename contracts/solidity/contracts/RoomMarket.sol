@@ -28,7 +28,7 @@ contract RoomMarket {
         uint256 staking;
     }
 
-    uint256 public nextRoomId;
+    uint256 public nextRoomId = 100000; // start from 100000
 
     mapping(uint256 => Room) public rooms;
 
@@ -57,7 +57,7 @@ contract RoomMarket {
         room.players.push(player);
         room.pubkeys.push(pubkey);
         room.creator = msg.sender;
-        room.site = limit;
+        room.site = limit - 1;
         room.status = RoomStatus.Opening;
 
         return nextRoomId;

@@ -9,7 +9,7 @@ const FUJI_ADDRESS: &str = include_str!("../../public/localhost.json");
 const ARBITRUMGOERLI_ADDRESS: &str = include_str!("../../public/localhost.json");
 
 /// Default network
-pub const DEFAULT_NETWORK: Network = Network::Mumbai;
+pub const DEFAULT_NETWORK: Network = Network::Localhost;
 
 /// Network types
 #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
@@ -90,7 +90,11 @@ impl NetworkConfig {
     /// Get the network config
     pub fn from(network: Network) -> NetworkConfig {
         match network {
-            Network::Localhost => NetworkConfig::default(),
+            Network::Localhost => {
+                let mut nc = NetworkConfig::default();
+                nc.rpc_urls = vec!["http://127.0.0.1:8545".to_owned()];
+                nc
+            }
             Network::Mumbai => NetworkConfig {
                 chain_id: 80001,
                 chain_name: "Mumbai".to_owned(),

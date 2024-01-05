@@ -3,13 +3,14 @@ use tdn::{
     prelude::{
         start_with_config_and_key, NetworkType, PeerId, ReceiveMessage, SendMessage, SendType,
     },
-    types::{primitives::vec_check_push, rpc::rpc_response},
+    types::rpc::rpc_response,
 };
 use tokio::{select, sync::mpsc::Sender};
 
 use crate::{
     config::Config,
     p2p::handle_p2p,
+    pool::{listen as pool_listen, pool_channel},
     room::{ConnectType, Room},
     rpc::handle_rpc,
     scan::{chain_channel, listen as scan_listen},
@@ -55,17 +56,19 @@ impl<H: Handler> Engine<H> {
     }
 
     /// create a pending room when scan from chain
-    pub fn add_pending(&mut self, id: RoomId) {
+    pub fn add_pending(&mut self, id: RoomId, pids: Vec<PeerId>, pks: Vec<PublicKey>) {
         if !self.pending.contains_key(&id) {
-            self.pending.insert(id, vec![]);
+            let mut peers = vec![];
+            for (pid, pk) in pids.iter().zip(pks) {
+                peers.push((*pid, pk));
+            }
+            self.pending.insert(id, peers);
         }
     }
 
-    /// add a pending room peer
-    pub fn add_peer(&mut self, id: RoomId, peer: (PeerId, PublicKey)) {
-        if let Some(peers) = self.pending.get_mut(&id) {
-            vec_check_push(peers, peer);
-        }
+    /// create a pending room when scan from chain
+    pub fn del_pending(&mut self, id: RoomId) {
+        self.pending.remove(&id);
     }
 
     /// create a room when scan from chain
@@ -144,13 +147,17 @@ impl<H: Handler> Engine<H> {
 
     pub async fn run(mut self) -> Result<()> {
         let (tdn_config, key) = self.config.to_tdn();
-        let (scan_providers, scan_net) = self.config.to_scan()?;
+        let chain_option = self.config.to_chain().await;
 
         let (peer_addr, send, mut out_recv) = start_with_config_and_key(tdn_config, key).await?;
         println!("SERVER: peer id: {:?}", peer_addr);
 
         let (chain_send, mut chain_recv) = chain_channel();
-        tokio::spawn(scan_listen(scan_providers, scan_net, chain_send));
+        let (pool_send, pool_recv) = pool_channel();
+        if let Some((scan_providers, pool_provider, chain_net)) = chain_option {
+            tokio::spawn(scan_listen(scan_providers, chain_net, chain_send.clone()));
+            tokio::spawn(pool_listen(pool_provider, chain_net, chain_send, pool_recv));
+        }
 
         loop {
             let work = select! {
@@ -179,24 +186,27 @@ impl<H: Handler> Engine<H> {
                     ReceiveMessage::Own(..) => {}
                 },
                 Some(FutureMessage::Chain(message)) => match message {
-                    ChainMessage::StartRoom(_rid, _players, _pubkeys) => {
-                        // TODO create pending room
-
-                        // TODO join the first player
+                    ChainMessage::StartRoom(rid, players, pubkeys) => {
+                        println!("Engine: accept new room: {}", rid);
+                        // TODO send accept operation to chain
+                        let _ = pool_send.send(PoolMessage::AcceptRoom(rid));
+                        self.add_pending(rid, players, pubkeys);
                     }
                     ChainMessage::AcceptRoom(rid, sequencer) => {
                         if sequencer == peer_addr {
+                            println!("Engine: start new room: {}", rid);
                             // if mine, create room
-                            // TODO
+                            self.start_room(rid).await;
                             let _ = send
                                 .send(SendMessage::Network(NetworkType::AddGroup(rid)))
                                 .await;
                         } else {
-                            // TODO if not mine, delete it.
+                            // if not mine, delete it.
+                            self.del_pending(rid);
                         }
                     }
                     ChainMessage::Reprove => {
-                        // TODO
+                        // TODO logic
                     }
                 },
                 None => break,

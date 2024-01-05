@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use zplonk::errors::ZplonkError;
 
 use crate::{PeerId, PublicKey};
 
@@ -14,6 +15,8 @@ pub enum Error {
     SecretKey,
     /// Anyhow error
     Anyhow(String),
+    /// ZK error,
+    Zk(ZplonkError),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -33,8 +36,9 @@ pub enum ChainMessage {
 }
 
 pub enum PoolMessage {
-    Submitted,
-    Submit,
+    AcceptRoom(RoomId),
+    OverRoom(RoomId, Vec<u8>, Vec<u8>),
+    Submitted(RoomId),
 }
 
 impl From<Box<bincode::ErrorKind>> for Error {
@@ -64,5 +68,11 @@ impl From<hex::FromHexError> for Error {
 impl From<ethers::prelude::WalletError> for Error {
     fn from(_err: ethers::prelude::WalletError) -> Error {
         Error::SecretKey
+    }
+}
+
+impl From<ZplonkError> for Error {
+    fn from(err: ZplonkError) -> Error {
+        Error::Zk(err)
     }
 }
