@@ -10,6 +10,8 @@ pub enum Error {
     NoRoom,
     /// serialize error
     Serialize,
+    /// invalid secret key
+    SecretKey,
     /// Anyhow error
     Anyhow(String),
 }
@@ -50,5 +52,17 @@ impl From<serde_json::Error> for Error {
 impl From<anyhow::Error> for Error {
     fn from(err: anyhow::Error) -> Error {
         Error::Anyhow(err.to_string())
+    }
+}
+
+impl From<hex::FromHexError> for Error {
+    fn from(_err: hex::FromHexError) -> Error {
+        Error::Serialize
+    }
+}
+
+impl From<ethers::prelude::WalletError> for Error {
+    fn from(_err: ethers::prelude::WalletError) -> Error {
+        Error::SecretKey
     }
 }

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use ark_serialize::{CanonicalDeserialize, Compress, Validate};
 use ethers::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
@@ -181,12 +182,16 @@ pub async fn running(
 
 #[inline]
 fn parse_room(cid: U256) -> Option<RoomId> {
-    todo!()
+    if cid > U256::from(RoomId::MAX) {
+        None
+    } else {
+        Some(cid.as_u64())
+    }
 }
 
 #[inline]
 fn parse_peer(cpid: Address) -> Option<PeerId> {
-    todo!()
+    PeerId::from_bytes(cpid.as_bytes()).ok()
 }
 
 #[inline]
@@ -202,7 +207,7 @@ fn parse_peers(cpids: Vec<Address>) -> Vec<PeerId> {
 
 #[inline]
 fn parse_pk(cpk: H256) -> Option<PublicKey> {
-    todo!()
+    PublicKey::deserialize_with_mode(cpk.as_bytes(), Compress::Yes, Validate::Yes).ok()
 }
 
 #[inline]

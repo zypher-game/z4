@@ -12,7 +12,7 @@ use crate::{
     p2p::handle_p2p,
     room::{ConnectType, Room},
     rpc::handle_rpc,
-    scan::chain_channel,
+    scan::{chain_channel, listen as scan_listen},
     types::*,
     HandleResult, Handler, Param, PublicKey, Task,
 };
@@ -144,13 +144,13 @@ impl<H: Handler> Engine<H> {
 
     pub async fn run(mut self) -> Result<()> {
         let (tdn_config, key) = self.config.to_tdn();
+        let (scan_providers, scan_net) = self.config.to_scan()?;
 
-        let (peer_addr, send, mut out_recv) =
-            start_with_config_and_key(tdn_config, key).await.unwrap();
+        let (peer_addr, send, mut out_recv) = start_with_config_and_key(tdn_config, key).await?;
         println!("SERVER: peer id: {:?}", peer_addr);
 
-        let (_chain_send, mut chain_recv) = chain_channel();
-        // listen(chain_send);
+        let (chain_send, mut chain_recv) = chain_channel();
+        tokio::spawn(scan_listen(scan_providers, scan_net, chain_send));
 
         loop {
             let work = select! {
