@@ -1,6 +1,4 @@
 require("@nomicfoundation/hardhat-toolbox");
-require("@nomiclabs/hardhat-ethers");
-require('@openzeppelin/hardhat-upgrades');
 require("hardhat-contract-sizer");
 require("hardhat-gas-reporter");
 require("dotenv").config();
