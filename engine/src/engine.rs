@@ -175,10 +175,10 @@ impl<H: Handler> Engine<H> {
                         if !self.has_room(&gid) {
                             continue;
                         }
-                        let _ = handle_p2p(&mut self, &send, gid, msg).await;
+                        let _ = handle_p2p(&mut self, &send, &pool_send, gid, msg).await;
                     }
                     ReceiveMessage::Rpc(uid, params, is_ws) => {
-                        let _ = handle_rpc(&mut self, &send, uid, params, is_ws).await;
+                        let _ = handle_rpc(&mut self, &send, &pool_send, uid, params, is_ws).await;
                     }
                     ReceiveMessage::NetworkLost => {
                         println!("No network connections");
@@ -188,7 +188,7 @@ impl<H: Handler> Engine<H> {
                 Some(FutureMessage::Chain(message)) => match message {
                     ChainMessage::StartRoom(rid, players, pubkeys) => {
                         println!("Engine: accept new room: {}", rid);
-                        // TODO send accept operation to chain
+                        // send accept operation to chain
                         let _ = pool_send.send(PoolMessage::AcceptRoom(rid));
                         self.add_pending(rid, players, pubkeys);
                     }
@@ -311,7 +311,7 @@ pub async fn handle_result<P: Param>(
         }
     }
 
-    if over {
+    if over.is_some() {
         let p2p_msg = P2pMessage {
             method: "over",
             params: vec![],

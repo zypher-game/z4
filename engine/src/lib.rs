@@ -34,7 +34,7 @@ pub struct HandleResult<P: Param> {
     /// need send to someone msg
     one: Vec<(PeerId, String, P)>,
     /// when game over, need prove the operations & states
-    over: bool,
+    over: Option<(Vec<u8>, Vec<u8>)>,
 }
 
 impl<P: Param> HandleResult<P> {
@@ -44,6 +44,20 @@ impl<P: Param> HandleResult<P> {
 
     pub fn add_one(&mut self, account: PeerId, method: &str, param: P) {
         self.one.push((account, method.to_owned(), param));
+    }
+
+    pub fn over(&mut self, data: Vec<u8>, proof: Vec<u8>) {
+        self.over = Some((data, proof));
+    }
+
+    pub fn replace_over(&mut self) -> Option<(Vec<u8>, Vec<u8>)> {
+        if let Some((data, proof)) = &mut self.over {
+            let d = std::mem::take(data);
+            let p = std::mem::take(proof);
+            Some((d, p))
+        } else {
+            None
+        }
     }
 }
 

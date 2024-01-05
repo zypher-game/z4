@@ -50,5 +50,4 @@ async fn main() {
         mock_player_with_p2p(ROOM, player4, opponent4, sid, sk4),
     };
     println!("GAME OVER");
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 }

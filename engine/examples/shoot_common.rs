@@ -141,25 +141,47 @@ impl Handler for ShootHandler {
                     ]),
                 );
 
-                // zkp
                 self.operations.push(ShootOperation {
                     from: a_pk,
                     to: b_pk,
                 });
 
-                let players: Vec<PublicKey> =
-                    self.accounts.iter().map(|(_, (pk, _))| *pk).collect();
+                // check game is over
+                let mut game_over = true;
+                let lives: Vec<PeerId> = self
+                    .accounts
+                    .iter()
+                    .filter_map(|(p, (_, a))| if a.hp > 0 { Some(*p) } else { None })
+                    .collect();
+                if lives.len() > 1 {
+                    for (_, (_, account)) in self.accounts.iter() {
+                        if account.bullet != 0 && account.hp != 0 {
+                            game_over = false;
+                            break;
+                        }
+                    }
+                }
 
-                let mut prng = ChaChaRng::from_seed([0u8; 32]);
-                let prover_params = gen_prover_params(&players, &self.operations).unwrap();
-                println!("SERVER: zk key ok, op: {}", self.operations.len());
+                if game_over {
+                    // zkp
+                    let players: Vec<PublicKey> =
+                        self.accounts.iter().map(|(_, (pk, _))| *pk).collect();
 
-                let (proof, results) =
-                    prove_shoot(&mut prng, &prover_params, &players, &self.operations).unwrap();
-                println!("SERVER: zk prove ok, op: {}", self.operations.len());
-                let verifier_params = get_verifier_params(prover_params);
-                verify_shoot(&verifier_params, &results, &proof).unwrap();
-                println!("SERVER: zk verify ok, op: {}", self.operations.len());
+                    let mut prng = ChaChaRng::from_seed([0u8; 32]);
+                    let prover_params = gen_prover_params(&players, &self.operations).unwrap();
+                    println!("SERVER: zk key ok, op: {}", self.operations.len());
+
+                    let (proof, results) =
+                        prove_shoot(&mut prng, &prover_params, &players, &self.operations).unwrap();
+                    println!("SERVER: zk prove ok, op: {}", self.operations.len());
+                    let verifier_params = get_verifier_params(prover_params);
+                    verify_shoot(&verifier_params, &results, &proof).unwrap();
+                    println!("SERVER: zk verify ok, op: {}", self.operations.len());
+
+                    // TODO results serialize to bytes
+                    let proof_bytes = bincode::serialize(&proof).unwrap();
+                    result.over(vec![], proof_bytes);
+                }
 
                 return Ok(result);
             }
@@ -235,7 +257,7 @@ async fn mock_player(
         let work = tokio::select! {
             w = async {
                 let i = prng.next_u64() % opponents.len() as u64;
-                tokio::time::sleep(std::time::Duration::from_secs(i + 1)).await;
+                tokio::time::sleep(std::time::Duration::from_secs(i+1)).await;
                 Some(Work::Shoot(opponents[i as usize]))
             } => w,
             w = async {

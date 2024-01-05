@@ -1,10 +1,10 @@
 use tdn::prelude::{GroupId, RecvType, SendMessage, SendType};
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{Sender, UnboundedSender};
 
 use crate::{
     engine::{handle_result, Engine},
     room::ConnectType,
-    types::{P2pMessage, Result},
+    types::{P2pMessage, PoolMessage, Result},
     Handler, Param,
 };
 
@@ -12,12 +12,12 @@ use crate::{
 pub async fn handle_p2p<H: Handler>(
     engine: &mut Engine<H>,
     send: &Sender<SendMessage>,
+    pool_send: &UnboundedSender<PoolMessage>,
     gid: GroupId,
     msg: RecvType,
 ) -> Result<()> {
     match msg {
         RecvType::Connect(peer, _data) => {
-            println!("receive group peer {} join", peer.id.short_show());
             let handler = engine.get_mut_handler(&gid).unwrap(); // safe
             let res = handler.online(peer.id).await?;
 
@@ -44,7 +44,6 @@ pub async fn handle_p2p<H: Handler>(
             handle_result(room, res, send, None).await;
         }
         RecvType::Leave(peer) => {
-            println!("receive group peer {} leave", peer.id.short_show());
             engine.offline(peer.id);
 
             let handler = engine.get_mut_handler(&gid).unwrap(); // safe
@@ -59,13 +58,13 @@ pub async fn handle_p2p<H: Handler>(
                 let params = H::Param::from_bytes(&params)?;
 
                 let handler = engine.get_mut_handler(&gid).unwrap(); // safe
-                let res = handler.handle(peer_id, method, params).await?;
+                let mut res = handler.handle(peer_id, method, params).await?;
 
-                let is_over = res.over;
+                let over = res.replace_over();
                 let room = engine.get_room(&gid).unwrap(); // safe
                 handle_result(room, res, send, None).await;
-                if is_over {
-                    // TODO
+                if let Some((data, proof)) = over {
+                    let _ = pool_send.send(PoolMessage::OverRoom(gid, data, proof));
                 }
             }
         }

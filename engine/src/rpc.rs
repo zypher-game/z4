@@ -1,11 +1,11 @@
 use serde_json::Value;
 use tdn::prelude::{PeerId, SendMessage};
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{Sender, UnboundedSender};
 
 use crate::{
     engine::{handle_result, Engine},
     room::ConnectType,
-    types::{Error, Result},
+    types::{Error, PoolMessage, Result},
     Handler, Param,
 };
 
@@ -13,6 +13,7 @@ use crate::{
 pub async fn handle_rpc<H: Handler>(
     engine: &mut Engine<H>,
     send: &Sender<SendMessage>,
+    pool_send: &UnboundedSender<PoolMessage>,
     uid: u64,
     mut params: Value,
     is_ws: bool,
@@ -44,14 +45,14 @@ pub async fn handle_rpc<H: Handler>(
     if engine.is_room_peer(&gid, &peer_id) {
         let params = H::Param::from_value(params)?;
         let handler = engine.get_mut_handler(&gid).unwrap(); // safe
-        let res = handler.handle(peer_id, &method, params).await?;
+        let mut res = handler.handle(peer_id, &method, params).await?;
 
-        let is_over = res.over;
+        let over = res.replace_over();
         let is_rpc = if is_ws { None } else { Some((peer_id, uid)) };
         let room = engine.get_room(&gid).unwrap(); // safe
         handle_result(room, res, send, is_rpc).await;
-        if is_over {
-            // TODO
+        if let Some((data, proof)) = over {
+            let _ = pool_send.send(PoolMessage::OverRoom(gid, data, proof));
         }
     }
     Ok(())
