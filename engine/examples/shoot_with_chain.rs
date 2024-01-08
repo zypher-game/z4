@@ -2,7 +2,7 @@ use ark_serialize::{CanonicalSerialize, Compress};
 use ethers::prelude::*;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use std::sync::Arc;
-use zroom_engine::{
+use z4_engine::{
     generate_keypair, Config, Engine, Network, NetworkConfig, PeerKey, PublicKey, RoomId,
     RoomMarket,
 };
