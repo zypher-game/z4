@@ -12,7 +12,7 @@ use z4_engine::{
     SecretKey, Value,
 };
 use zplonk::{
-    params::{load_lagrange_params, load_srs_params, ProverParams, VerifierParams},
+    gen_params::{load_lagrange_params, load_srs_params, ProverParams, VerifierParams},
     poly_commit::kzg_poly_commitment::KZGCommitmentSchemeBN254,
     turboplonk::{
         constraint_system::{ConstraintSystem, TurboCS, VarIndex},
