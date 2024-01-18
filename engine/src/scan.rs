@@ -17,6 +17,7 @@ const DELAY: u64 = 3;
 #[derive(Clone, Debug, EthEvent)]
 struct StartRoom {
     room: U256,
+    reward: U256,
     players: Vec<Address>,
     pubkeys: Vec<H256>,
 }
@@ -25,6 +26,7 @@ struct StartRoom {
 struct AcceptRoom {
     room: U256,
     sequencer: Address,
+    locked: U256,
 }
 
 pub fn chain_channel() -> (
@@ -143,10 +145,17 @@ pub async fn running(
             for start in starts {
                 let StartRoom {
                     room,
+                    reward,
                     players,
                     pubkeys,
                 } = start;
-                info!("scan start: {} {} {}", room, players.len(), pubkeys.len());
+                info!(
+                    "scan start: {} {} {} {}",
+                    room,
+                    reward,
+                    players.len(),
+                    pubkeys.len()
+                );
                 match (parse_room(room), parse_peers(players), parse_pks(pubkeys)) {
                     (Some(rid), pids, pks) => {
                         if pids.len() == pks.len() {
@@ -162,8 +171,12 @@ pub async fn running(
 
         if let Ok(accepts) = accepts_room {
             for accept in accepts {
-                let AcceptRoom { room, sequencer } = accept;
-                info!("scan accept: {} {}", room, sequencer);
+                let AcceptRoom {
+                    room,
+                    sequencer,
+                    locked,
+                } = accept;
+                info!("scan accept: {} {} {}", room, sequencer, locked);
                 match (parse_room(room), parse_peer(sequencer)) {
                     (Some(rid), Some(pid)) => {
                         sender.send(ChainMessage::AcceptRoom(rid, pid))?;

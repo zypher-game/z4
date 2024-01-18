@@ -125,7 +125,7 @@ async fn register_sequencer(
     let result1 = market.sequencers(addr).await.unwrap();
     if result1.1 == U256::from(0) {
         market
-            .register_sequencer("".to_owned(), U256::from(1))
+            .stake_sequencer("".to_owned(), U256::from(10000))
             .send()
             .await
             .unwrap();

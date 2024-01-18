@@ -71,7 +71,7 @@ pub async fn listen(
                 let extra_gas = gas_price + gas_price / U256::from(EXTRA_GAS);
 
                 match market
-                    .over_room(U256::from(id), result.into(), proof.into())
+                    .over_room_with_zk(U256::from(id), result.into(), proof.into())
                     .gas_price(extra_gas)
                     .send()
                     .await

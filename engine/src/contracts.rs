@@ -2,6 +2,7 @@ use ethers::prelude::*;
 use serde_json::Value;
 
 abigen!(RoomMarket, "public/ABI/RoomMarket.json");
+abigen!(Token, "public/ABI/Token.json");
 
 const LOCALHOST_ADDRESS: &str = include_str!("../../public/localhost.json");
 const MUMBAI_ADDRESS: &str = include_str!("../../public/localhost.json");

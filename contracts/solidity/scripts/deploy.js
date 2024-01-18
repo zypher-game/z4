@@ -28,9 +28,13 @@ async function deployContract(name, params=[]) {
 }
 
 async function deploy() {
-  const roomMarket = await deployContract("RoomMarket");
+  // DEMO for test
+  const token = await deployContract("Token", [1000000]);
+
+  const roomMarket = await deployContract("RoomMarket", [token, 10000, 100]);
 
   const addresses = {
+    Token: token,
     RoomMarket: roomMarket
   };
   const filename = `../../public/${network.name}.json`;

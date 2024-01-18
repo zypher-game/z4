@@ -3,6 +3,7 @@ const { readFileSync, writeFileSync } = require("fs");
 const main = async () => {
   try {
     const contracts = [
+      'Token',
       'RoomMarket'
     ];
 

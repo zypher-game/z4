@@ -1,5 +1,37 @@
 [
   {
+    "inputs": [],
+    "name": "InvalidInitialization",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotInitializing",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnableInvalidOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "OwnableUnauthorizedAccount",
+    "type": "error"
+  },
+  {
     "anonymous": false,
     "inputs": [
       {
@@ -13,9 +45,28 @@
         "internalType": "address",
         "name": "sequencer",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "locked",
+        "type": "uint256"
       }
     ],
     "name": "AcceptRoom",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "version",
+        "type": "uint64"
+      }
+    ],
+    "name": "Initialized",
     "type": "event"
   },
   {
@@ -29,6 +80,25 @@
       }
     ],
     "name": "OverRoom",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
     "type": "event"
   },
   {
@@ -53,7 +123,7 @@
         "type": "uint256"
       }
     ],
-    "name": "RegisterSequencer",
+    "name": "StakeSequencer",
     "type": "event"
   },
   {
@@ -63,6 +133,12 @@
         "indexed": false,
         "internalType": "uint256",
         "name": "room",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "reward",
         "type": "uint256"
       },
       {
@@ -82,6 +158,25 @@
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "sequencer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "staking",
+        "type": "uint256"
+      }
+    ],
+    "name": "UnstakeSequencer",
+    "type": "event"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -96,6 +191,11 @@
   },
   {
     "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "reward",
+        "type": "uint256"
+      },
       {
         "internalType": "uint256",
         "name": "limit",
@@ -121,6 +221,48 @@
       }
     ],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_token",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_minStaking",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_playerRoomLock",
+        "type": "uint256"
+      }
+    ],
+    "name": "initialize",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "sequencer",
+        "type": "address"
+      }
+    ],
+    "name": "isSequencer",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -154,6 +296,19 @@
   },
   {
     "inputs": [],
+    "name": "minStaking",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "nextRoomId",
     "outputs": [
       {
@@ -178,12 +333,12 @@
         "type": "bytes"
       },
       {
-        "internalType": "bytes",
-        "name": "proof",
-        "type": "bytes"
+        "internalType": "bytes[]",
+        "name": "proofs",
+        "type": "bytes[]"
       }
     ],
-    "name": "overRoom",
+    "name": "overRoomWithSign",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -191,17 +346,55 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "http",
-        "type": "string"
+        "internalType": "uint256",
+        "name": "roomId",
+        "type": "uint256"
       },
       {
+        "internalType": "bytes",
+        "name": "data",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes",
+        "name": "proof",
+        "type": "bytes"
+      }
+    ],
+    "name": "overRoomWithZk",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "playerRoomLock",
+    "outputs": [
+      {
         "internalType": "uint256",
-        "name": "staking",
+        "name": "",
         "type": "uint256"
       }
     ],
-    "name": "registerSequencer",
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "renounceOwnership",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -235,9 +428,19 @@
         "type": "address"
       },
       {
+        "internalType": "uint256",
+        "name": "reward",
+        "type": "uint256"
+      },
+      {
         "internalType": "address",
         "name": "sequencer",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "locked",
+        "type": "uint256"
       },
       {
         "internalType": "uint256",
@@ -281,11 +484,107 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "_minStaking",
+        "type": "uint256"
+      }
+    ],
+    "name": "setMinStaking",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_playerRoomLock",
+        "type": "uint256"
+      }
+    ],
+    "name": "setPlayerRoomLock",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_token",
+        "type": "address"
+      }
+    ],
+    "name": "setToken",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "http",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "stakeSequencer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "roomId",
         "type": "uint256"
       }
     ],
     "name": "startRoom",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "token",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "unstakeSequencer",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
