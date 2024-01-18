@@ -262,7 +262,26 @@ impl Combination {
         }
     }
 
-    pub fn check_rank(&self) -> bool {
+    pub fn len(&self) -> usize {
+        match self {
+            Single(_) => 1,
+            Pair(_, _) => 2,
+            ThreeOfAKind(_, _, _) => 3,
+            ThreeWithOne(_, _, _, _) => 4,
+            ThreeWithPair(_, _, _, _, _) => 5,
+            Straight(x) => x.len(),
+            DoubleStraight(x) => 2 * x.len(),
+            TripleStraight(x) => 3 * x.len(),
+            TripleStraightWithOne(x) => 4 * x.len(),
+            TripleStraightWithPair(x) => 5 * x.len(),
+            FourWithTwoSingle(_, _, _, _, _, _) => 6,
+            FourWithTwoPairs(_, _, _, _, _, _, _, _) => 8,
+            Bomb(_, _, _, _) => 4,
+            Rocket(_, _) => 2,
+        }
+    }
+
+    pub fn sanity_check(&self) -> bool {
         match self {
             Single(_) => true,
 
@@ -277,8 +296,8 @@ impl Combination {
             }
 
             ThreeWithPair(x1, x2, x3, y1, y2) => {
-                let condition1 = ThreeOfAKind(*x1, *x2, *x3).check_rank();
-                let condition2 = Pair(*y1, *y2).check_rank();
+                let condition1 = ThreeOfAKind(*x1, *x2, *x3).sanity_check();
+                let condition2 = Pair(*y1, *y2).sanity_check();
 
                 condition1 && condition2
             }
@@ -337,12 +356,12 @@ impl Combination {
 
             TripleStraightWithOne(x) => {
                 let triple_stright = x.iter().map(|x| (x.0, x.1, x.2)).collect::<Vec<_>>();
-                TripleStraight(triple_stright).check_rank()
+                TripleStraight(triple_stright).sanity_check()
             }
 
             TripleStraightWithPair(x) => {
                 let triple_stright = x.iter().map(|x| (x.0, x.1, x.2)).collect::<Vec<_>>();
-                let condition1 = TripleStraight(triple_stright).check_rank();
+                let condition1 = TripleStraight(triple_stright).sanity_check();
                 let condition2 = x.iter().all(|x| x.3.get_value() == x.4.get_value());
 
                 condition1 && condition2
