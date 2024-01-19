@@ -24,7 +24,7 @@ tracing = "0.1"
 futures-util = { version = "0.3", default-features = false, features = ["sink"], optional = true }
 tokio-tungstenite = { version = "0.21", optional = true }
 
-zplonk = { git = "ssh://git@github.com/zypher-game/uzkge.git" }
+zplonk = { path = "../../../uzkge/zplonk"}
 
 [dev-dependencies]
 rand_chacha = "0.3"

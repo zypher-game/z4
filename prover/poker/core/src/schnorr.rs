@@ -117,7 +117,7 @@ mod test {
     use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 
     #[test]
-    fn test_ecdsa() {
+    fn test_schnorr() {
         let mut prng = ChaChaRng::from_seed([0u8; 32]);
         let key_pair = KeyPair::sample(&mut prng);
         let msg = vec![

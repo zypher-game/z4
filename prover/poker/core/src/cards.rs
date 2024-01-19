@@ -119,7 +119,7 @@ impl std::fmt::Debug for ClassicCard {
 }
 
 lazy_static! {
-    static ref ENCODE_CARDS_MAPPING: HashMap<zshuffle::Card, ClassicCard> = {
+  pub static ref ENCODE_CARDS_MAPPING: HashMap<zshuffle::Card, ClassicCard> = {
         let map = HashMap::new();
         // TODO
         map

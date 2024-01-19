@@ -1,85 +1,98 @@
 use crate::{
-    cards::{ClassicCard, Value},
+    cards::{ClassicCard, Value, ENCODE_CARDS_MAPPING},
     combination::Combination::*,
+    errors::{PokerError, Result},
 };
 
 /// Different card play combinations
-pub enum Combination {
+pub enum Combination<T> {
     // Single card
-    Single(ClassicCard),
+    Single(T),
 
     // Pair of cards
-    Pair(ClassicCard, ClassicCard),
+    Pair(T, T),
 
     // Three cards of the same rank
-    ThreeOfAKind(ClassicCard, ClassicCard, ClassicCard),
+    ThreeOfAKind(T, T, T),
 
     // Three cards of the same rank with one single card
-    ThreeWithOne(ClassicCard, ClassicCard, ClassicCard, ClassicCard),
+    ThreeWithOne(T, T, T, T),
 
     // Three cards of the same rank with one pair
-    ThreeWithPair(
-        ClassicCard,
-        ClassicCard,
-        ClassicCard,
-        ClassicCard,
-        ClassicCard,
-    ),
+    ThreeWithPair(T, T, T, T, T),
 
     // Five or more consecutive single cards
-    Straight(Vec<ClassicCard>),
+    Straight(Vec<T>),
 
     // Three or more consecutive pairs
-    DoubleStraight(Vec<(ClassicCard, ClassicCard)>),
+    DoubleStraight(Vec<(T, T)>),
 
     // Two or more consecutive three of a kind
-    TripleStraight(Vec<(ClassicCard, ClassicCard, ClassicCard)>),
+    TripleStraight(Vec<(T, T, T)>),
 
     // Triple straight with one single card
-    TripleStraightWithOne(Vec<(ClassicCard, ClassicCard, ClassicCard, ClassicCard)>),
+    TripleStraightWithOne(Vec<(T, T, T, T)>),
 
     // Triple straight with one pair
-    TripleStraightWithPair(
-        Vec<(
-            ClassicCard,
-            ClassicCard,
-            ClassicCard,
-            ClassicCard,
-            ClassicCard,
-        )>,
-    ),
+    TripleStraightWithPair(Vec<(T, T, T, T, T)>),
 
     // Four cards of the same rank with two single cards
-    FourWithTwoSingle(
-        ClassicCard,
-        ClassicCard,
-        ClassicCard,
-        ClassicCard,
-        ClassicCard,
-        ClassicCard,
-    ),
+    FourWithTwoSingle(T, T, T, T, T, T),
 
     // Four cards of the same rank with two pairs
-    FourWithTwoPairs(
-        ClassicCard,
-        ClassicCard,
-        ClassicCard,
-        ClassicCard,
-        ClassicCard,
-        ClassicCard,
-        ClassicCard,
-        ClassicCard,
-    ),
+    FourWithTwoPairs(T, T, T, T, T, T, T, T),
 
     // Four cards of the same rank
-    Bomb(ClassicCard, ClassicCard, ClassicCard, ClassicCard),
+    Bomb(T, T, T, T),
 
     // Both Jokers in a standard deck
-    Rocket(ClassicCard, ClassicCard),
+    Rocket(T, T),
     // TODO Add more combinations //
 }
 
-impl PartialEq for Combination {
+impl<T> Combination<T> {
+    pub fn weight(&self) -> u8 {
+        match self {
+            Single(_) => 1,
+            Pair(_, _) => 1,
+            ThreeOfAKind(_, _, _) => 1,
+            ThreeWithOne(_, _, _, _) => 1,
+            ThreeWithPair(_, _, _, _, _) => 1,
+            Straight(_) => 1,
+            DoubleStraight(_) => 1,
+            TripleStraight(_) => 1,
+            TripleStraightWithOne(_) => 1,
+            TripleStraightWithPair(_) => 1,
+            FourWithTwoSingle(_, _, _, _, _, _) => 1,
+            FourWithTwoPairs(_, _, _, _, _, _, _, _) => 1,
+            Bomb(_, _, _, _) => 2,
+            Rocket(_, _) => 3,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            Single(_) => 1,
+            Pair(_, _) => 2,
+            ThreeOfAKind(_, _, _) => 3,
+            ThreeWithOne(_, _, _, _) => 4,
+            ThreeWithPair(_, _, _, _, _) => 5,
+            Straight(x) => x.len(),
+            DoubleStraight(x) => 2 * x.len(),
+            TripleStraight(x) => 3 * x.len(),
+            TripleStraightWithOne(x) => 4 * x.len(),
+            TripleStraightWithPair(x) => 5 * x.len(),
+            FourWithTwoSingle(_, _, _, _, _, _) => 6,
+            FourWithTwoPairs(_, _, _, _, _, _, _, _) => 8,
+            Bomb(_, _, _, _) => 4,
+            Rocket(_, _) => 2,
+        }
+    }
+}
+
+pub type ClassicCardCombination = Combination<ClassicCard>;
+
+impl PartialEq for ClassicCardCombination {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Single(x), Single(y)) => x.get_value().eq(&&y.get_value()),
@@ -159,7 +172,7 @@ impl PartialEq for Combination {
     }
 }
 
-impl PartialOrd for Combination {
+impl PartialOrd for ClassicCardCombination {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         if self.weight() == other.weight() {
             match (self, other) {
@@ -242,45 +255,7 @@ impl PartialOrd for Combination {
     }
 }
 
-impl Combination {
-    pub fn weight(&self) -> u8 {
-        match self {
-            Single(_) => 1,
-            Pair(_, _) => 1,
-            ThreeOfAKind(_, _, _) => 1,
-            ThreeWithOne(_, _, _, _) => 1,
-            ThreeWithPair(_, _, _, _, _) => 1,
-            Straight(_) => 1,
-            DoubleStraight(_) => 1,
-            TripleStraight(_) => 1,
-            TripleStraightWithOne(_) => 1,
-            TripleStraightWithPair(_) => 1,
-            FourWithTwoSingle(_, _, _, _, _, _) => 1,
-            FourWithTwoPairs(_, _, _, _, _, _, _, _) => 1,
-            Bomb(_, _, _, _) => 2,
-            Rocket(_, _) => 3,
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        match self {
-            Single(_) => 1,
-            Pair(_, _) => 2,
-            ThreeOfAKind(_, _, _) => 3,
-            ThreeWithOne(_, _, _, _) => 4,
-            ThreeWithPair(_, _, _, _, _) => 5,
-            Straight(x) => x.len(),
-            DoubleStraight(x) => 2 * x.len(),
-            TripleStraight(x) => 3 * x.len(),
-            TripleStraightWithOne(x) => 4 * x.len(),
-            TripleStraightWithPair(x) => 5 * x.len(),
-            FourWithTwoSingle(_, _, _, _, _, _) => 6,
-            FourWithTwoPairs(_, _, _, _, _, _, _, _) => 8,
-            Bomb(_, _, _, _) => 4,
-            Rocket(_, _) => 2,
-        }
-    }
-
+impl ClassicCardCombination {
     pub fn sanity_check(&self) -> bool {
         match self {
             Single(_) => true,
@@ -391,6 +366,156 @@ impl Combination {
             }
 
             Rocket(_, _) => todo!(),
+        }
+    }
+}
+
+pub type CryptoCardCombination = Combination<zshuffle::Card>;
+
+impl CryptoCardCombination {
+    pub fn morph_to_classic(&self) -> Result<ClassicCardCombination> {
+        match self {
+            Single(x) => {
+                let c = ENCODE_CARDS_MAPPING.get(x).ok_or(PokerError::MorphError)?;
+
+                Ok(Single(*c))
+            }
+
+            Pair(x1, x2) => {
+                let c_1 = ENCODE_CARDS_MAPPING.get(x1).ok_or(PokerError::MorphError)?;
+                let c_2 = ENCODE_CARDS_MAPPING.get(x2).ok_or(PokerError::MorphError)?;
+
+                Ok(Pair(*c_1, *c_2))
+            }
+
+            ThreeOfAKind(x1, x2, x3) => {
+                let c_1 = ENCODE_CARDS_MAPPING.get(x1).ok_or(PokerError::MorphError)?;
+                let c_2 = ENCODE_CARDS_MAPPING.get(x2).ok_or(PokerError::MorphError)?;
+                let c_3 = ENCODE_CARDS_MAPPING.get(x3).ok_or(PokerError::MorphError)?;
+
+                Ok(ThreeOfAKind(*c_1, *c_2, *c_3))
+            }
+
+            ThreeWithOne(x1, x2, x3, x4) => {
+                let c_1 = ENCODE_CARDS_MAPPING.get(x1).ok_or(PokerError::MorphError)?;
+                let c_2 = ENCODE_CARDS_MAPPING.get(x2).ok_or(PokerError::MorphError)?;
+                let c_3 = ENCODE_CARDS_MAPPING.get(x3).ok_or(PokerError::MorphError)?;
+                let c_4 = ENCODE_CARDS_MAPPING.get(x4).ok_or(PokerError::MorphError)?;
+
+                Ok(ThreeWithOne(*c_1, *c_2, *c_3, *c_4))
+            }
+
+            ThreeWithPair(x1, x2, x3, x4, x5) => {
+                let c_1 = ENCODE_CARDS_MAPPING.get(x1).ok_or(PokerError::MorphError)?;
+                let c_2 = ENCODE_CARDS_MAPPING.get(x2).ok_or(PokerError::MorphError)?;
+                let c_3 = ENCODE_CARDS_MAPPING.get(x3).ok_or(PokerError::MorphError)?;
+                let c_4 = ENCODE_CARDS_MAPPING.get(x4).ok_or(PokerError::MorphError)?;
+                let c_5 = ENCODE_CARDS_MAPPING.get(x5).ok_or(PokerError::MorphError)?;
+
+                Ok(ThreeWithPair(*c_1, *c_2, *c_3, *c_4, *c_5))
+            }
+
+            Straight(x) => {
+                let mut classic_card = vec![];
+                for y in x.iter() {
+                    let c = ENCODE_CARDS_MAPPING.get(y).ok_or(PokerError::MorphError)?;
+                    classic_card.push(*c)
+                }
+
+                Ok(Straight(classic_card))
+            }
+
+            DoubleStraight(x) => {
+                let mut classic_card = vec![];
+                for (y1, y2) in x.iter() {
+                    let c1 = ENCODE_CARDS_MAPPING.get(y1).ok_or(PokerError::MorphError)?;
+                    let c2 = ENCODE_CARDS_MAPPING.get(y2).ok_or(PokerError::MorphError)?;
+                    classic_card.push((*c1, *c2))
+                }
+
+                Ok(DoubleStraight(classic_card))
+            }
+
+            TripleStraight(x) => {
+                let mut classic_card = vec![];
+                for (y1, y2, y3) in x.iter() {
+                    let c1 = ENCODE_CARDS_MAPPING.get(y1).ok_or(PokerError::MorphError)?;
+                    let c2 = ENCODE_CARDS_MAPPING.get(y2).ok_or(PokerError::MorphError)?;
+                    let c3 = ENCODE_CARDS_MAPPING.get(y3).ok_or(PokerError::MorphError)?;
+                    classic_card.push((*c1, *c2, *c3))
+                }
+
+                Ok(TripleStraight(classic_card))
+            }
+
+            TripleStraightWithOne(x) => {
+                let mut classic_card = vec![];
+                for (y1, y2, y3, y4) in x.iter() {
+                    let c1 = ENCODE_CARDS_MAPPING.get(y1).ok_or(PokerError::MorphError)?;
+                    let c2 = ENCODE_CARDS_MAPPING.get(y2).ok_or(PokerError::MorphError)?;
+                    let c3 = ENCODE_CARDS_MAPPING.get(y3).ok_or(PokerError::MorphError)?;
+                    let c4 = ENCODE_CARDS_MAPPING.get(y4).ok_or(PokerError::MorphError)?;
+                    classic_card.push((*c1, *c2, *c3, *c4))
+                }
+
+                Ok(TripleStraightWithOne(classic_card))
+            }
+
+            TripleStraightWithPair(x) => {
+                let mut classic_card = vec![];
+                for (y1, y2, y3, y4, y5) in x.iter() {
+                    let c1 = ENCODE_CARDS_MAPPING.get(y1).ok_or(PokerError::MorphError)?;
+                    let c2 = ENCODE_CARDS_MAPPING.get(y2).ok_or(PokerError::MorphError)?;
+                    let c3 = ENCODE_CARDS_MAPPING.get(y3).ok_or(PokerError::MorphError)?;
+                    let c4 = ENCODE_CARDS_MAPPING.get(y4).ok_or(PokerError::MorphError)?;
+                    let c5 = ENCODE_CARDS_MAPPING.get(y5).ok_or(PokerError::MorphError)?;
+                    classic_card.push((*c1, *c2, *c3, *c4, *c5))
+                }
+
+                Ok(TripleStraightWithPair(classic_card))
+            }
+
+            FourWithTwoSingle(x1, x2, x3, x4, x5, x6) => {
+                let c_1 = ENCODE_CARDS_MAPPING.get(x1).ok_or(PokerError::MorphError)?;
+                let c_2 = ENCODE_CARDS_MAPPING.get(x2).ok_or(PokerError::MorphError)?;
+                let c_3 = ENCODE_CARDS_MAPPING.get(x3).ok_or(PokerError::MorphError)?;
+                let c_4 = ENCODE_CARDS_MAPPING.get(x4).ok_or(PokerError::MorphError)?;
+                let c_5 = ENCODE_CARDS_MAPPING.get(x5).ok_or(PokerError::MorphError)?;
+                let c_6 = ENCODE_CARDS_MAPPING.get(x6).ok_or(PokerError::MorphError)?;
+
+                Ok(FourWithTwoSingle(*c_1, *c_2, *c_3, *c_4, *c_5, *c_6))
+            }
+
+            FourWithTwoPairs(x1, x2, x3, x4, x5, x6, x7, x8) => {
+                let c_1 = ENCODE_CARDS_MAPPING.get(x1).ok_or(PokerError::MorphError)?;
+                let c_2 = ENCODE_CARDS_MAPPING.get(x2).ok_or(PokerError::MorphError)?;
+                let c_3 = ENCODE_CARDS_MAPPING.get(x3).ok_or(PokerError::MorphError)?;
+                let c_4 = ENCODE_CARDS_MAPPING.get(x4).ok_or(PokerError::MorphError)?;
+                let c_5 = ENCODE_CARDS_MAPPING.get(x5).ok_or(PokerError::MorphError)?;
+                let c_6 = ENCODE_CARDS_MAPPING.get(x6).ok_or(PokerError::MorphError)?;
+                let c_7 = ENCODE_CARDS_MAPPING.get(x7).ok_or(PokerError::MorphError)?;
+                let c_8 = ENCODE_CARDS_MAPPING.get(x8).ok_or(PokerError::MorphError)?;
+
+                Ok(FourWithTwoPairs(
+                    *c_1, *c_2, *c_3, *c_4, *c_5, *c_6, *c_7, *c_8,
+                ))
+            }
+
+            Bomb(x1, x2, x3, x4) => {
+                let c_1 = ENCODE_CARDS_MAPPING.get(x1).ok_or(PokerError::MorphError)?;
+                let c_2 = ENCODE_CARDS_MAPPING.get(x2).ok_or(PokerError::MorphError)?;
+                let c_3 = ENCODE_CARDS_MAPPING.get(x3).ok_or(PokerError::MorphError)?;
+                let c_4 = ENCODE_CARDS_MAPPING.get(x4).ok_or(PokerError::MorphError)?;
+
+                Ok(Bomb(*c_1, *c_2, *c_3, *c_4))
+            }
+
+            Rocket(x1, x2) => {
+                let c_1 = ENCODE_CARDS_MAPPING.get(x1).ok_or(PokerError::MorphError)?;
+                let c_2 = ENCODE_CARDS_MAPPING.get(x2).ok_or(PokerError::MorphError)?;
+
+                Ok(Rocket(*c_1, *c_2))
+            }
         }
     }
 }

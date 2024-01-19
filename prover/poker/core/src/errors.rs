@@ -5,6 +5,7 @@ pub enum PokerError {
     SignatureError,
     VerifySignatureError,
     BuildPlayEnvParasError,
+    MorphError,
 }
 
 pub type Result<T> = core::result::Result<T, PokerError>;
@@ -15,6 +16,7 @@ impl Display for PokerError {
             Self::SignatureError => "Signature failed",
             Self::VerifySignatureError => "Signature verification failed",
             Self::BuildPlayEnvParasError => "Incorrect parameters of playerEnv",
+            Self::MorphError => "Merph to classic card failed",
         })
     }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    combination::Combination,
+    combination::CryptoCardCombination,
     errors::{PokerError, Result},
     schnorr::{KeyPair, Signature},
 };
@@ -37,7 +37,7 @@ pub struct PlayerEnv {
     // The identifier for the current turn within the round.
     pub turn_id: usize,
     pub action: PlayAction,
-    pub play_cards: Option<Combination>,
+    pub play_cards: Option<CryptoCardCombination>,
     pub owner_reveal: Vec<(RevealCard, RevealProof, PublicKey)>,
     pub others_reveal: Vec<Vec<(RevealCard, RevealProof, PublicKey)>>,
     // Currently using ECDSA signatures, with plans to transition to aggregated signatures in the future.
@@ -97,12 +97,7 @@ impl PlayerEnvBuilder {
         self
     }
 
-    pub fn play_cards(mut self, play_cards: Option<Combination>) -> Self {
-        self.inner.play_cards = play_cards;
-        self
-    }
-
-    pub fn owner_unmask(mut self, play_cards: Option<Combination>) -> Self {
+    pub fn play_cards(mut self, play_cards: Option<CryptoCardCombination>) -> Self {
         self.inner.play_cards = play_cards;
         self
     }
@@ -169,12 +164,11 @@ impl PlayerEnvBuilder {
             });
         }
 
-        let action_id: u8 = self.inner.action.into();
         let mut msg = vec![
             Fr::from(self.inner.room_id as u64),
             Fr::from(self.inner.round_id as u64),
             Fr::from(self.inner.turn_id as u64),
-            Fr::from(action_id),
+            Fr::from(Into::<u8>::into(self.inner.action)),
         ];
         msg.extend(cards);
 
@@ -204,12 +198,11 @@ mod test {
             .build_and_sign(&key_pair, None, &mut prng)
             .unwrap();
 
-        let a_id: u8 = player.action.into();
         let msg = vec![
             Fr::from(player.room_id as u64),
             Fr::from(player.round_id as u64),
             Fr::from(player.turn_id as u64),
-            Fr::from(a_id),
+            Fr::from(Into::<u8>::into(player.action)),
         ];
         assert!(key_pair
             .get_public_key()
