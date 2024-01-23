@@ -5,5 +5,7 @@ edition = "2021"
 
 [dependencies]
 poker-methods = { path = "../methods" }
+poker-core = { path = "../core"}
 serde = {version = "1.0", features = ["derive"]}
 risc0-zkvm = { version = "0.19" }
+rand_chacha = "0.3"

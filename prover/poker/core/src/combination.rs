@@ -1,11 +1,12 @@
 use crate::{
-    cards::{ClassicCard, Value, ENCODING_CARDS_MAPPING},
+    cards::{ClassicCard, Value, ENCODING_CARDS_MAPPING, CryptoCard},
     combination::Combination::*,
     errors::{PokerError, Result},
 };
 use ark_ec::{AffineRepr, CurveGroup};
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone,Serialize,Deserialize)]
 /// Different card play combinations
 pub enum Combination<T> {
     // Single card
@@ -372,45 +373,45 @@ impl ClassicCardCombination {
     }
 }
 
-pub type CryptoCardCombination = Combination<zshuffle::Card>;
+pub type CryptoCardCombination = Combination<CryptoCard>;
 
 impl CryptoCardCombination {
     pub fn flatten(&self) -> Vec<ark_bn254::Fr> {
         match self {
             Single(c) => {
-                let (x, y) = c.into_affine().xy().unwrap();
+                let (x, y) = c.0.into_affine().xy().unwrap();
                 vec![x, y]
             }
             Pair(c1, c2) => {
-                let (x1, y1) = c1.into_affine().xy().unwrap();
-                let (x2, y2) = c2.into_affine().xy().unwrap();
+                let (x1, y1) = c1.0.into_affine().xy().unwrap();
+                let (x2, y2) = c2.0.into_affine().xy().unwrap();
                 vec![x1, y1, x2, y2]
             }
             ThreeOfAKind(c1, c2, c3) => {
-                let (x1, y1) = c1.into_affine().xy().unwrap();
-                let (x2, y2) = c2.into_affine().xy().unwrap();
-                let (x3, y3) = c3.into_affine().xy().unwrap();
+                let (x1, y1) = c1.0.into_affine().xy().unwrap();
+                let (x2, y2) = c2.0.into_affine().xy().unwrap();
+                let (x3, y3) = c3.0.into_affine().xy().unwrap();
                 vec![x1, y1, x2, y2, x3, y3]
             }
             ThreeWithOne(c1, c2, c3, c4) => {
-                let (x1, y1) = c1.into_affine().xy().unwrap();
-                let (x2, y2) = c2.into_affine().xy().unwrap();
-                let (x3, y3) = c3.into_affine().xy().unwrap();
-                let (x4, y4) = c4.into_affine().xy().unwrap();
+                let (x1, y1) = c1.0.into_affine().xy().unwrap();
+                let (x2, y2) = c2.0.into_affine().xy().unwrap();
+                let (x3, y3) = c3.0.into_affine().xy().unwrap();
+                let (x4, y4) = c4.0.into_affine().xy().unwrap();
                 vec![x1, y1, x2, y2, x3, y3, x4, y4]
             }
             ThreeWithPair(c1, c2, c3, c4, c5) => {
-                let (x1, y1) = c1.into_affine().xy().unwrap();
-                let (x2, y2) = c2.into_affine().xy().unwrap();
-                let (x3, y3) = c3.into_affine().xy().unwrap();
-                let (x4, y4) = c4.into_affine().xy().unwrap();
-                let (x5, y5) = c5.into_affine().xy().unwrap();
+                let (x1, y1) = c1.0.into_affine().xy().unwrap();
+                let (x2, y2) = c2.0.into_affine().xy().unwrap();
+                let (x3, y3) = c3.0.into_affine().xy().unwrap();
+                let (x4, y4) = c4.0.into_affine().xy().unwrap();
+                let (x5, y5) = c5.0.into_affine().xy().unwrap();
                 vec![x1, y1, x2, y2, x3, y3, x4, y4, x5, y5]
             }
             Straight(c) => {
                 let mut res = vec![];
                 for i in c.iter() {
-                    let (x, y) = i.into_affine().xy().unwrap();
+                    let (x, y) = i.0.into_affine().xy().unwrap();
                     res.push(x);
                     res.push(y)
                 }
@@ -419,8 +420,8 @@ impl CryptoCardCombination {
             DoubleStraight(c) => {
                 let mut res = vec![];
                 for (i1, i2) in c.iter() {
-                    let (x1, y1) = i1.into_affine().xy().unwrap();
-                    let (x2, y2) = i2.into_affine().xy().unwrap();
+                    let (x1, y1) = i1.0.into_affine().xy().unwrap();
+                    let (x2, y2) = i2.0.into_affine().xy().unwrap();
                     res.push(x1);
                     res.push(y1);
                     res.push(x2);
@@ -431,9 +432,9 @@ impl CryptoCardCombination {
             TripleStraight(c) => {
                 let mut res = vec![];
                 for (i1, i2, i3) in c.iter() {
-                    let (x1, y1) = i1.into_affine().xy().unwrap();
-                    let (x2, y2) = i2.into_affine().xy().unwrap();
-                    let (x3, y3) = i3.into_affine().xy().unwrap();
+                    let (x1, y1) = i1.0.into_affine().xy().unwrap();
+                    let (x2, y2) = i2.0.into_affine().xy().unwrap();
+                    let (x3, y3) = i3.0.into_affine().xy().unwrap();
                     res.push(x1);
                     res.push(y1);
                     res.push(x2);
@@ -446,10 +447,10 @@ impl CryptoCardCombination {
             TripleStraightWithOne(c) => {
                 let mut res = vec![];
                 for (i1, i2, i3, i4) in c.iter() {
-                    let (x1, y1) = i1.into_affine().xy().unwrap();
-                    let (x2, y2) = i2.into_affine().xy().unwrap();
-                    let (x3, y3) = i3.into_affine().xy().unwrap();
-                    let (x4, y4) = i4.into_affine().xy().unwrap();
+                    let (x1, y1) = i1.0.into_affine().xy().unwrap();
+                    let (x2, y2) = i2.0.into_affine().xy().unwrap();
+                    let (x3, y3) = i3.0.into_affine().xy().unwrap();
+                    let (x4, y4) = i4.0.into_affine().xy().unwrap();
                     res.push(x1);
                     res.push(y1);
                     res.push(x2);
@@ -464,11 +465,11 @@ impl CryptoCardCombination {
             TripleStraightWithPair(c) => {
                 let mut res = vec![];
                 for (i1, i2, i3, i4, i5) in c.iter() {
-                    let (x1, y1) = i1.into_affine().xy().unwrap();
-                    let (x2, y2) = i2.into_affine().xy().unwrap();
-                    let (x3, y3) = i3.into_affine().xy().unwrap();
-                    let (x4, y4) = i4.into_affine().xy().unwrap();
-                    let (x5, y5) = i5.into_affine().xy().unwrap();
+                    let (x1, y1) = i1.0.into_affine().xy().unwrap();
+                    let (x2, y2) = i2.0.into_affine().xy().unwrap();
+                    let (x3, y3) = i3.0.into_affine().xy().unwrap();
+                    let (x4, y4) = i4.0.into_affine().xy().unwrap();
+                    let (x5, y5) = i5.0.into_affine().xy().unwrap();
                     res.push(x1);
                     res.push(y1);
                     res.push(x2);
@@ -484,37 +485,37 @@ impl CryptoCardCombination {
                 res
             }
             FourWithTwoSingle(c1, c2, c3, c4, c5, c6) => {
-                let (x1, y1) = c1.into_affine().xy().unwrap();
-                let (x2, y2) = c2.into_affine().xy().unwrap();
-                let (x3, y3) = c3.into_affine().xy().unwrap();
-                let (x4, y4) = c4.into_affine().xy().unwrap();
-                let (x5, y5) = c5.into_affine().xy().unwrap();
-                let (x6, y6) = c6.into_affine().xy().unwrap();
+                let (x1, y1) = c1.0.into_affine().xy().unwrap();
+                let (x2, y2) = c2.0.into_affine().xy().unwrap();
+                let (x3, y3) = c3.0.into_affine().xy().unwrap();
+                let (x4, y4) = c4.0.into_affine().xy().unwrap();
+                let (x5, y5) = c5.0.into_affine().xy().unwrap();
+                let (x6, y6) = c6.0.into_affine().xy().unwrap();
                 vec![x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, x6, y6]
             }
             FourWithTwoPairs(c1, c2, c3, c4, c5, c6, c7, c8) => {
-                let (x1, y1) = c1.into_affine().xy().unwrap();
-                let (x2, y2) = c2.into_affine().xy().unwrap();
-                let (x3, y3) = c3.into_affine().xy().unwrap();
-                let (x4, y4) = c4.into_affine().xy().unwrap();
-                let (x5, y5) = c5.into_affine().xy().unwrap();
-                let (x6, y6) = c6.into_affine().xy().unwrap();
-                let (x7, y7) = c7.into_affine().xy().unwrap();
-                let (x8, y8) = c8.into_affine().xy().unwrap();
+                let (x1, y1) = c1.0.into_affine().xy().unwrap();
+                let (x2, y2) = c2.0.into_affine().xy().unwrap();
+                let (x3, y3) = c3.0.into_affine().xy().unwrap();
+                let (x4, y4) = c4.0.into_affine().xy().unwrap();
+                let (x5, y5) = c5.0.into_affine().xy().unwrap();
+                let (x6, y6) = c6.0.into_affine().xy().unwrap();
+                let (x7, y7) = c7.0.into_affine().xy().unwrap();
+                let (x8, y8) = c8.0.into_affine().xy().unwrap();
                 vec![
                     x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, x6, y6, x7, y7, x8, y8,
                 ]
             }
             Bomb(c1, c2, c3, c4) => {
-                let (x1, y1) = c1.into_affine().xy().unwrap();
-                let (x2, y2) = c2.into_affine().xy().unwrap();
-                let (x3, y3) = c3.into_affine().xy().unwrap();
-                let (x4, y4) = c4.into_affine().xy().unwrap();
+                let (x1, y1) = c1.0.into_affine().xy().unwrap();
+                let (x2, y2) = c2.0.into_affine().xy().unwrap();
+                let (x3, y3) = c3.0.into_affine().xy().unwrap();
+                let (x4, y4) = c4.0.into_affine().xy().unwrap();
                 vec![x1, y1, x2, y2, x3, y3, x4, y4]
             }
             Rocket(c1, c2) => {
-                let (x1, y1) = c1.into_affine().xy().unwrap();
-                let (x2, y2) = c2.into_affine().xy().unwrap();
+                let (x1, y1) = c1.0.into_affine().xy().unwrap();
+                let (x2, y2) = c2.0.into_affine().xy().unwrap();
                 vec![x1, y1, x2, y2]
             }
         }
@@ -523,7 +524,7 @@ impl CryptoCardCombination {
         match self {
             Single(x) => {
                 let c = ENCODING_CARDS_MAPPING
-                    .get(x)
+                    .get(&x.0)
                     .ok_or(PokerError::MorphError)?;
 
                 Ok(Single(*c))
@@ -531,10 +532,10 @@ impl CryptoCardCombination {
 
             Pair(x1, x2) => {
                 let c_1 = ENCODING_CARDS_MAPPING
-                    .get(x1)
+                    .get(&x1.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_2 = ENCODING_CARDS_MAPPING
-                    .get(x2)
+                    .get(&x2.0)
                     .ok_or(PokerError::MorphError)?;
 
                 Ok(Pair(*c_1, *c_2))
@@ -542,13 +543,13 @@ impl CryptoCardCombination {
 
             ThreeOfAKind(x1, x2, x3) => {
                 let c_1 = ENCODING_CARDS_MAPPING
-                    .get(x1)
+                    .get(&x1.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_2 = ENCODING_CARDS_MAPPING
-                    .get(x2)
+                    .get(&x2.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_3 = ENCODING_CARDS_MAPPING
-                    .get(x3)
+                    .get(&x3.0)
                     .ok_or(PokerError::MorphError)?;
 
                 Ok(ThreeOfAKind(*c_1, *c_2, *c_3))
@@ -556,16 +557,16 @@ impl CryptoCardCombination {
 
             ThreeWithOne(x1, x2, x3, x4) => {
                 let c_1 = ENCODING_CARDS_MAPPING
-                    .get(x1)
+                    .get(&x1.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_2 = ENCODING_CARDS_MAPPING
-                    .get(x2)
+                    .get(&x2.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_3 = ENCODING_CARDS_MAPPING
-                    .get(x3)
+                    .get(&x3.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_4 = ENCODING_CARDS_MAPPING
-                    .get(x4)
+                    .get(&x4.0)
                     .ok_or(PokerError::MorphError)?;
 
                 Ok(ThreeWithOne(*c_1, *c_2, *c_3, *c_4))
@@ -573,19 +574,19 @@ impl CryptoCardCombination {
 
             ThreeWithPair(x1, x2, x3, x4, x5) => {
                 let c_1 = ENCODING_CARDS_MAPPING
-                    .get(x1)
+                    .get(&x1.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_2 = ENCODING_CARDS_MAPPING
-                    .get(x2)
+                    .get(&x2.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_3 = ENCODING_CARDS_MAPPING
-                    .get(x3)
+                    .get(&x3.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_4 = ENCODING_CARDS_MAPPING
-                    .get(x4)
+                    .get(&x4.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_5 = ENCODING_CARDS_MAPPING
-                    .get(x5)
+                    .get(&x5.0)
                     .ok_or(PokerError::MorphError)?;
 
                 Ok(ThreeWithPair(*c_1, *c_2, *c_3, *c_4, *c_5))
@@ -595,7 +596,7 @@ impl CryptoCardCombination {
                 let mut classic_card = vec![];
                 for y in x.iter() {
                     let c = ENCODING_CARDS_MAPPING
-                        .get(y)
+                        .get(&y.0)
                         .ok_or(PokerError::MorphError)?;
                     classic_card.push(*c)
                 }
@@ -607,10 +608,10 @@ impl CryptoCardCombination {
                 let mut classic_card = vec![];
                 for (y1, y2) in x.iter() {
                     let c1 = ENCODING_CARDS_MAPPING
-                        .get(y1)
+                        .get(&y1.0)
                         .ok_or(PokerError::MorphError)?;
                     let c2 = ENCODING_CARDS_MAPPING
-                        .get(y2)
+                        .get(&y2.0)
                         .ok_or(PokerError::MorphError)?;
                     classic_card.push((*c1, *c2))
                 }
@@ -622,13 +623,13 @@ impl CryptoCardCombination {
                 let mut classic_card = vec![];
                 for (y1, y2, y3) in x.iter() {
                     let c1 = ENCODING_CARDS_MAPPING
-                        .get(y1)
+                        .get(&y1.0)
                         .ok_or(PokerError::MorphError)?;
                     let c2 = ENCODING_CARDS_MAPPING
-                        .get(y2)
+                        .get(&y2.0)
                         .ok_or(PokerError::MorphError)?;
                     let c3 = ENCODING_CARDS_MAPPING
-                        .get(y3)
+                        .get(&y3.0)
                         .ok_or(PokerError::MorphError)?;
                     classic_card.push((*c1, *c2, *c3))
                 }
@@ -640,16 +641,16 @@ impl CryptoCardCombination {
                 let mut classic_card = vec![];
                 for (y1, y2, y3, y4) in x.iter() {
                     let c1 = ENCODING_CARDS_MAPPING
-                        .get(y1)
+                        .get(&y1.0)
                         .ok_or(PokerError::MorphError)?;
                     let c2 = ENCODING_CARDS_MAPPING
-                        .get(y2)
+                        .get(&y2.0)
                         .ok_or(PokerError::MorphError)?;
                     let c3 = ENCODING_CARDS_MAPPING
-                        .get(y3)
+                        .get(&y3.0)
                         .ok_or(PokerError::MorphError)?;
                     let c4 = ENCODING_CARDS_MAPPING
-                        .get(y4)
+                        .get(&y4.0)
                         .ok_or(PokerError::MorphError)?;
                     classic_card.push((*c1, *c2, *c3, *c4))
                 }
@@ -661,19 +662,19 @@ impl CryptoCardCombination {
                 let mut classic_card = vec![];
                 for (y1, y2, y3, y4, y5) in x.iter() {
                     let c1 = ENCODING_CARDS_MAPPING
-                        .get(y1)
+                        .get(&y1.0)
                         .ok_or(PokerError::MorphError)?;
                     let c2 = ENCODING_CARDS_MAPPING
-                        .get(y2)
+                        .get(&y2.0)
                         .ok_or(PokerError::MorphError)?;
                     let c3 = ENCODING_CARDS_MAPPING
-                        .get(y3)
+                        .get(&y3.0)
                         .ok_or(PokerError::MorphError)?;
                     let c4 = ENCODING_CARDS_MAPPING
-                        .get(y4)
+                        .get(&y4.0)
                         .ok_or(PokerError::MorphError)?;
                     let c5 = ENCODING_CARDS_MAPPING
-                        .get(y5)
+                        .get(&y5.0)
                         .ok_or(PokerError::MorphError)?;
                     classic_card.push((*c1, *c2, *c3, *c4, *c5))
                 }
@@ -683,22 +684,22 @@ impl CryptoCardCombination {
 
             FourWithTwoSingle(x1, x2, x3, x4, x5, x6) => {
                 let c_1 = ENCODING_CARDS_MAPPING
-                    .get(x1)
+                    .get(&x1.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_2 = ENCODING_CARDS_MAPPING
-                    .get(x2)
+                    .get(&x2.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_3 = ENCODING_CARDS_MAPPING
-                    .get(x3)
+                    .get(&x3.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_4 = ENCODING_CARDS_MAPPING
-                    .get(x4)
+                    .get(&x4.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_5 = ENCODING_CARDS_MAPPING
-                    .get(x5)
+                    .get(&x5.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_6 = ENCODING_CARDS_MAPPING
-                    .get(x6)
+                    .get(&x6.0)
                     .ok_or(PokerError::MorphError)?;
 
                 Ok(FourWithTwoSingle(*c_1, *c_2, *c_3, *c_4, *c_5, *c_6))
@@ -706,28 +707,28 @@ impl CryptoCardCombination {
 
             FourWithTwoPairs(x1, x2, x3, x4, x5, x6, x7, x8) => {
                 let c_1 = ENCODING_CARDS_MAPPING
-                    .get(x1)
+                    .get(&x1.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_2 = ENCODING_CARDS_MAPPING
-                    .get(x2)
+                    .get(&x2.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_3 = ENCODING_CARDS_MAPPING
-                    .get(x3)
+                    .get(&x3.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_4 = ENCODING_CARDS_MAPPING
-                    .get(x4)
+                    .get(&x4.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_5 = ENCODING_CARDS_MAPPING
-                    .get(x5)
+                    .get(&x5.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_6 = ENCODING_CARDS_MAPPING
-                    .get(x6)
+                    .get(&x6.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_7 = ENCODING_CARDS_MAPPING
-                    .get(x7)
+                    .get(&x7.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_8 = ENCODING_CARDS_MAPPING
-                    .get(x8)
+                    .get(&x8.0)
                     .ok_or(PokerError::MorphError)?;
 
                 Ok(FourWithTwoPairs(
@@ -737,16 +738,16 @@ impl CryptoCardCombination {
 
             Bomb(x1, x2, x3, x4) => {
                 let c_1 = ENCODING_CARDS_MAPPING
-                    .get(x1)
+                    .get(&x1.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_2 = ENCODING_CARDS_MAPPING
-                    .get(x2)
+                    .get(&x2.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_3 = ENCODING_CARDS_MAPPING
-                    .get(x3)
+                    .get(&x3.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_4 = ENCODING_CARDS_MAPPING
-                    .get(x4)
+                    .get(&x4.0)
                     .ok_or(PokerError::MorphError)?;
 
                 Ok(Bomb(*c_1, *c_2, *c_3, *c_4))
@@ -754,10 +755,10 @@ impl CryptoCardCombination {
 
             Rocket(x1, x2) => {
                 let c_1 = ENCODING_CARDS_MAPPING
-                    .get(x1)
+                    .get(&x1.0)
                     .ok_or(PokerError::MorphError)?;
                 let c_2 = ENCODING_CARDS_MAPPING
-                    .get(x2)
+                    .get(&x2.0)
                     .ok_or(PokerError::MorphError)?;
 
                 Ok(Rocket(*c_1, *c_2))

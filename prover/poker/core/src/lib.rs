@@ -6,3 +6,4 @@ pub mod schnorr;
 
 #[macro_use]
 extern crate lazy_static;
+

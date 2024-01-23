@@ -3,10 +3,12 @@ risc0_zkvm::guest::entry!(main);
 
 
 pub fn main() {
-    let a: u64 = env::read();
+    let task: Task = env::read();
+
+    println!("{}",task);
 
      let mut b = 0;
-     for i in 1..a {
+     for i in 1..10 {
          b+=i
      } 
 

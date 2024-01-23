@@ -3,13 +3,14 @@ use std::collections::HashMap;
 use crate::{
     combination::CryptoCardCombination,
     errors::{PokerError, Result},
-    schnorr::{KeyPair, Signature},
+    schnorr::{KeyPair, Signature, PublicKey}, cards::{RevealCard, CryptoCard},
 };
 use ark_bn254::Fr;
 use rand_chacha::rand_core::{CryptoRng, RngCore};
-use zshuffle::{keygen::PublicKey, RevealCard, RevealProof};
+use serde::{Deserialize, Serialize};
+use zshuffle::RevealProof;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq,Deserialize, Serialize)]
 pub enum PlayAction {
     PAAS,
     PLAY,
@@ -24,15 +25,7 @@ impl From<PlayAction> for u8 {
     }
 }
 
-pub struct Task {
-    pub room_id: usize,
-    pub game_id: usize,
-    pub num_round: usize,
-    pub players_order: Vec<PublicKey>,
-    pub games_env: Vec<Vec<PlayerEnv>>,
-    pub players_hand: HashMap<PublicKey, Vec<zshuffle::Card>>,
-}
-
+#[derive(Deserialize, Serialize)]
 pub struct PlayerEnv {
     // The unique identifier for the game room.
     pub room_id: usize,
@@ -178,6 +171,17 @@ impl PlayerEnvBuilder {
 
         Ok(self.inner)
     }
+}
+
+
+#[derive(Deserialize, Serialize)]
+pub struct Task {
+    pub room_id: usize,
+    pub game_id: usize,
+    pub num_round: usize,
+    pub players_order: Vec<PublicKey>,
+    pub players_env: Vec<Vec<PlayerEnv>>,
+    pub players_hand: HashMap<PublicKey, Vec<CryptoCard>>,
 }
 
 #[cfg(test)]
