@@ -1,12 +1,13 @@
 use crate::{
-    cards::{ClassicCard, Value, ENCODING_CARDS_MAPPING, CryptoCard},
+    cards::{ClassicCard, CryptoCard, EncodingCard, Value, ENCODING_CARDS_MAPPING},
     combination::Combination::*,
     errors::{PokerError, Result},
 };
 use ark_ec::{AffineRepr, CurveGroup};
-use serde::{Serialize, Deserialize};
+use ark_std::iterable::Iterable;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone,Serialize,Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// Different card play combinations
 pub enum Combination<T> {
     // Single card
@@ -373,9 +374,9 @@ impl ClassicCardCombination {
     }
 }
 
-pub type CryptoCardCombination = Combination<CryptoCard>;
+pub type EncodingCardCombination = Combination<EncodingCard>;
 
-impl CryptoCardCombination {
+impl EncodingCardCombination {
     pub fn flatten(&self) -> Vec<ark_bn254::Fr> {
         match self {
             Single(c) => {
@@ -520,6 +521,37 @@ impl CryptoCardCombination {
             }
         }
     }
+
+    pub fn to_vec(&self) -> Vec<EncodingCard> {
+        match self {
+            Single(x) => vec![*x],
+            Pair(x1, x2) => vec![*x1, *x2],
+            ThreeOfAKind(x1, x2, x3) => vec![*x1, *x2, *x3],
+            ThreeWithOne(x1, x2, x3, x4) => vec![*x1, *x2, *x3, *x4],
+            ThreeWithPair(x1, x2, x3, x4, x5) => vec![*x1, *x2, *x3, *x4, *x5],
+            Straight(x) => x.to_vec(),
+            DoubleStraight(x) => x.iter().flat_map(|(x1, x2)| vec![*x1, *x2]).collect(),
+            TripleStraight(x) => x
+                .iter()
+                .flat_map(|(x1, x2, x3)| vec![*x1, *x2, *x3])
+                .collect(),
+            TripleStraightWithOne(x) => x
+                .iter()
+                .flat_map(|(x1, x2, x3, x4)| vec![*x1, *x2, *x3, *x4])
+                .collect(),
+            TripleStraightWithPair(x) => x
+                .iter()
+                .flat_map(|(x1, x2, x3, x4, x5)| vec![*x1, *x2, *x3, *x4, *x5])
+                .collect(),
+            FourWithTwoSingle(x1, x2, x3, x4, x5, x6) => vec![*x1, *x2, *x3, *x4, *x5, *x6],
+            FourWithTwoPairs(x1, x2, x3, x4, x5, x6, x7, x8) => {
+                vec![*x1, *x2, *x3, *x4, *x5, *x6, *x7, *x8]
+            }
+            Bomb(x1, x2, x3, x4) => vec![*x1, *x2, *x3, *x4],
+            Rocket(x1, x2) => vec![*x1, *x2],
+        }
+    }
+
     pub fn morph_to_classic(&self) -> Result<ClassicCardCombination> {
         match self {
             Single(x) => {
@@ -763,6 +795,223 @@ impl CryptoCardCombination {
 
                 Ok(Rocket(*c_1, *c_2))
             }
+        }
+    }
+}
+
+pub type CryptoCardCombination = Combination<CryptoCard>;
+
+impl CryptoCardCombination {
+    pub fn flatten(&self) -> Vec<ark_bn254::Fr> {
+        match self {
+            Single(c) => c.0.flatten().to_vec(),
+            Pair(c1, c2) => {
+                let mut v1 = c1.0.flatten().to_vec();
+                let v2 = c2.0.flatten().to_vec();
+                v1.extend(v2);
+                v1
+            }
+            ThreeOfAKind(c1, c2, c3) => {
+                let mut v1 = c1.0.flatten().to_vec();
+                let v2 = c2.0.flatten().to_vec();
+                let v3 = c3.0.flatten().to_vec();
+                v1.extend(v2);
+                v1.extend(v3);
+                v1
+            }
+            ThreeWithOne(c1, c2, c3, c4) => {
+                let mut v1 = c1.0.flatten().to_vec();
+                let v2 = c2.0.flatten().to_vec();
+                let v3 = c3.0.flatten().to_vec();
+                let v4 = c4.0.flatten().to_vec();
+                v1.extend(v2);
+                v1.extend(v3);
+                v1.extend(v4);
+                v1
+            }
+            ThreeWithPair(c1, c2, c3, c4, c5) => {
+                let mut v1 = c1.0.flatten().to_vec();
+                let v2 = c2.0.flatten().to_vec();
+                let v3 = c3.0.flatten().to_vec();
+                let v4 = c4.0.flatten().to_vec();
+                let v5 = c5.0.flatten().to_vec();
+                v1.extend(v2);
+                v1.extend(v3);
+                v1.extend(v4);
+                v1.extend(v5);
+                v1
+            }
+            Straight(c) => {
+                let mut res = vec![];
+                for i in c.iter() {
+                    res.extend(i.0.flatten().to_vec())
+                }
+                res
+            }
+            DoubleStraight(c) => {
+                let mut res = vec![];
+                for (x1, x2) in c.iter() {
+                    res.extend(x1.0.flatten().to_vec());
+                    res.extend(x2.0.flatten().to_vec());
+                }
+                res
+            }
+            TripleStraight(c) => {
+                let mut res = vec![];
+                for (x1, x2, x3) in c.iter() {
+                    res.extend(x1.0.flatten().to_vec());
+                    res.extend(x2.0.flatten().to_vec());
+                    res.extend(x3.0.flatten().to_vec());
+                }
+                res
+            }
+            TripleStraightWithOne(c) => {
+                let mut res = vec![];
+                for (x1, x2, x3, x4) in c.iter() {
+                    res.extend(x1.0.flatten().to_vec());
+                    res.extend(x2.0.flatten().to_vec());
+                    res.extend(x3.0.flatten().to_vec());
+                    res.extend(x4.0.flatten().to_vec());
+                }
+                res
+            }
+            TripleStraightWithPair(c) => {
+                let mut res = vec![];
+                for (x1, x2, x3, x4, x5) in c.iter() {
+                    res.extend(x1.0.flatten().to_vec());
+                    res.extend(x2.0.flatten().to_vec());
+                    res.extend(x3.0.flatten().to_vec());
+                    res.extend(x4.0.flatten().to_vec());
+                    res.extend(x5.0.flatten().to_vec());
+                }
+                res
+            }
+            FourWithTwoSingle(c1, c2, c3, c4, c5, c6) => {
+                let mut v1 = c1.0.flatten().to_vec();
+                let v2 = c2.0.flatten().to_vec();
+                let v3 = c3.0.flatten().to_vec();
+                let v4 = c4.0.flatten().to_vec();
+                let v5 = c5.0.flatten().to_vec();
+                let v6 = c6.0.flatten().to_vec();
+                v1.extend(v2);
+                v1.extend(v3);
+                v1.extend(v4);
+                v1.extend(v5);
+                v1.extend(v6);
+                v1
+            }
+            FourWithTwoPairs(c1, c2, c3, c4, c5, c6, c7, c8) => {
+                let mut v1 = c1.0.flatten().to_vec();
+                let v2 = c2.0.flatten().to_vec();
+                let v3 = c3.0.flatten().to_vec();
+                let v4 = c4.0.flatten().to_vec();
+                let v5 = c5.0.flatten().to_vec();
+                let v6 = c6.0.flatten().to_vec();
+                let v7 = c7.0.flatten().to_vec();
+                let v8 = c8.0.flatten().to_vec();
+                v1.extend(v2);
+                v1.extend(v3);
+                v1.extend(v4);
+                v1.extend(v5);
+                v1.extend(v6);
+                v1.extend(v7);
+                v1.extend(v8);
+                v1
+            }
+            Bomb(c1, c2, c3, c4) => {
+                let mut v1 = c1.0.flatten().to_vec();
+                let v2 = c2.0.flatten().to_vec();
+                let v3 = c3.0.flatten().to_vec();
+                let v4 = c4.0.flatten().to_vec();
+                v1.extend(v2);
+                v1.extend(v3);
+                v1.extend(v4);
+                v1
+            }
+            Rocket(c1, c2) => {
+                let mut v1 = c1.0.flatten().to_vec();
+                let v2 = c2.0.flatten().to_vec();
+                v1.extend(v2);
+                v1
+            }
+        }
+    }
+
+    pub fn to_vec(&self) -> Vec<CryptoCard> {
+        match self {
+            Single(x) => vec![*x],
+            Pair(x1, x2) => vec![*x1, *x2],
+            ThreeOfAKind(x1, x2, x3) => vec![*x1, *x2, *x3],
+            ThreeWithOne(x1, x2, x3, x4) => vec![*x1, *x2, *x3, *x4],
+            ThreeWithPair(x1, x2, x3, x4, x5) => vec![*x1, *x2, *x3, *x4, *x5],
+            Straight(x) => x.to_vec(),
+            DoubleStraight(x) => x.iter().flat_map(|(x1, x2)| vec![*x1, *x2]).collect(),
+            TripleStraight(x) => x
+                .iter()
+                .flat_map(|(x1, x2, x3)| vec![*x1, *x2, *x3])
+                .collect(),
+            TripleStraightWithOne(x) => x
+                .iter()
+                .flat_map(|(x1, x2, x3, x4)| vec![*x1, *x2, *x3, *x4])
+                .collect(),
+            TripleStraightWithPair(x) => x
+                .iter()
+                .flat_map(|(x1, x2, x3, x4, x5)| vec![*x1, *x2, *x3, *x4, *x5])
+                .collect(),
+            FourWithTwoSingle(x1, x2, x3, x4, x5, x6) => vec![*x1, *x2, *x3, *x4, *x5, *x6],
+            FourWithTwoPairs(x1, x2, x3, x4, x5, x6, x7, x8) => {
+                vec![*x1, *x2, *x3, *x4, *x5, *x6, *x7, *x8]
+            }
+            Bomb(x1, x2, x3, x4) => vec![*x1, *x2, *x3, *x4],
+            Rocket(x1, x2) => vec![*x1, *x2],
+        }
+    }
+
+    pub fn morph_to_encoding(&self, reveals: &[EncodingCard]) -> EncodingCardCombination {
+        match self {
+            Single(_) => Single(reveals[0]),
+            Pair(_, _) => Pair(reveals[0], reveals[1]),
+            ThreeOfAKind(_, _, _) => ThreeOfAKind(reveals[0], reveals[1], reveals[2]),
+            ThreeWithOne(_, _, _, _) => {
+                ThreeWithOne(reveals[0], reveals[1], reveals[2], reveals[3])
+            }
+            ThreeWithPair(_, _, _, _, _) => {
+                ThreeWithPair(reveals[0], reveals[1], reveals[2], reveals[3], reveals[4])
+            }
+            Straight(_) => Straight(reveals.to_vec()),
+            DoubleStraight(_) => DoubleStraight(
+                reveals
+                    .chunks(2)
+                    .map(|x| (x[0], x[1]))
+                    .collect::<Vec<(_, _)>>(),
+            ),
+            TripleStraight(_) => TripleStraight(
+                reveals
+                    .chunks(3)
+                    .map(|x| (x[0], x[1], x[2]))
+                    .collect::<Vec<(_, _, _)>>(),
+            ),
+            TripleStraightWithOne(_) => TripleStraightWithOne(
+                reveals
+                    .chunks(4)
+                    .map(|x| (x[0], x[1], x[2], x[3]))
+                    .collect::<Vec<(_, _, _, _)>>(),
+            ),
+            TripleStraightWithPair(_) => TripleStraightWithPair(
+                reveals
+                    .chunks(5)
+                    .map(|x| (x[0], x[1], x[2], x[3], x[4]))
+                    .collect::<Vec<(_, _, _, _, _)>>(),
+            ),
+            FourWithTwoSingle(_, _, _, _, _, _) => FourWithTwoSingle(
+                reveals[0], reveals[1], reveals[2], reveals[3], reveals[4], reveals[5],
+            ),
+            FourWithTwoPairs(_, _, _, _, _, _, _, _) => FourWithTwoPairs(
+                reveals[0], reveals[1], reveals[2], reveals[3], reveals[4], reveals[5], reveals[6],
+                reveals[7],
+            ),
+            Bomb(_, _, _, _) => Bomb(reveals[0], reveals[1], reveals[2], reveals[3]),
+            Rocket(_, _) => Rocket(reveals[0], reveals[1]),
         }
     }
 }

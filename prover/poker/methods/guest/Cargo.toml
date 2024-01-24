@@ -8,3 +8,12 @@ edition = "2021"
 [dependencies]
 risc0-zkvm = { version = "0.19", default-features = false, features = [ "std" ] }
 poker-core = { path = "../../core"}
+serde_json = "1.0"
+
+[patch.crates-io]
+ark-ff = { git = "https://github.com/confuseSUN/algebra", branch = "test"}
+ark-ec = { git = "https://github.com/confuseSUN/algebra", branch = "test" }
+ark-poly = { git = "https://github.com/confuseSUN/algebra", branch = "test" }
+ark-serialize = { git = "https://github.com/confuseSUN/algebra", branch = "test" }
+ark-bn254 = { git = "https://github.com/confuseSUN/algebra", branch = "test"}
+ark-ed-on-bn254 = { git = "https://github.com/confuseSUN/algebra", branch = "test" }

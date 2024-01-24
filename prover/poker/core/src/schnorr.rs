@@ -7,22 +7,31 @@ use ark_ff::{BigInteger, PrimeField};
 use ark_std::UniformRand;
 use rand_chacha::rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
-use zplonk::{anemoi::{AnemoiJive, AnemoiJive254}, utils::serialization::{ark_serialize, ark_deserialize}};
+use zplonk::{
+    anemoi::{AnemoiJive, AnemoiJive254},
+    utils::serialization::{ark_deserialize, ark_serialize},
+};
 
 /// The public key.
-#[derive(Clone, Debug, Eq, PartialEq,Deserialize, Serialize)]
-pub struct PrivateKey(#[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")]  ark_ed_on_bn254::Fr);
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+pub struct PrivateKey(
+    #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")]
+    ark_ed_on_bn254::Fr,
+);
 
 /// The private key.
-#[derive(Clone, Debug, Eq, PartialEq,Deserialize, Serialize ,Hash)]
-pub struct PublicKey(  #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")] ark_ed_on_bn254::EdwardsAffine);
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, Hash, Default)]
+pub struct PublicKey(
+    #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")]
+    ark_ed_on_bn254::EdwardsAffine,
+);
 
 /// The signature.
-#[derive(Clone, Debug, Eq, PartialEq, Default,Deserialize, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Default, Deserialize, Serialize)]
 pub struct Signature {
-    #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")] 
+    #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")]
     pub s: ark_ed_on_bn254::Fr,
-    #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")] 
+    #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")]
     pub e: ark_bn254::Fr,
 }
 
@@ -92,6 +101,14 @@ impl PrivateKey {
 }
 
 impl PublicKey {
+    pub fn get_raw(&self) -> ark_ed_on_bn254::EdwardsProjective {
+        self.0.into()
+    }
+
+    pub fn rand<R: CryptoRng + RngCore>(prng: &mut R) -> Self {
+        Self(ark_ed_on_bn254::EdwardsAffine::rand(prng))
+    }
+
     pub fn verify(&self, s: &Signature, msg: &[ark_bn254::Fr]) -> Result<()> {
         let e_reduction =
             ark_ed_on_bn254::Fr::from_be_bytes_mod_order(&s.e.into_bigint().to_bytes_be());

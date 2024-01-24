@@ -9,3 +9,4 @@ poker-core = { path = "../core"}
 serde = {version = "1.0", features = ["derive"]}
 risc0-zkvm = { version = "0.19" }
 rand_chacha = "0.3"
+serde_json = "1.0"
