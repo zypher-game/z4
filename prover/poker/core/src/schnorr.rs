@@ -6,52 +6,64 @@ use ark_ed_on_bn254::EdwardsAffine;
 use ark_ff::{BigInteger, PrimeField};
 use ark_std::UniformRand;
 use rand_chacha::rand_core::{CryptoRng, RngCore};
-use zplonk::anemoi::{AnemoiJive, AnemoiJive254};
+use serde::{Deserialize, Serialize};
+use zplonk::{
+    anemoi::{AnemoiJive, AnemoiJive254},
+    utils::serialization::{ark_deserialize, ark_serialize},
+};
 
-/// The signing key.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SigningKey(ark_ed_on_bn254::Fr);
+/// The public key.
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+pub struct PrivateKey(
+    #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")]
+    ark_ed_on_bn254::Fr,
+);
 
-/// The verifying key.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VerifyingKey(ark_ed_on_bn254::EdwardsAffine);
+/// The private key.
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, Hash, Default)]
+pub struct PublicKey(
+    #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")]
+    ark_ed_on_bn254::EdwardsAffine,
+);
 
 /// The signature.
-#[derive(Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Clone, Debug, Eq, PartialEq, Default, Deserialize, Serialize)]
 pub struct Signature {
+    #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")]
     pub s: ark_ed_on_bn254::Fr,
+    #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")]
     pub e: ark_bn254::Fr,
 }
 
 /// The keypair for schnorr signature.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct KeyPair {
-    pub(crate) signing_key: SigningKey,
-    pub(crate) verifying_key: VerifyingKey,
+    pub(crate) private_key: PrivateKey,
+    pub(crate) public_key: PublicKey,
 }
 
 impl KeyPair {
     pub fn sample<R: CryptoRng + RngCore>(prng: &mut R) -> Self {
-        let sk = SigningKey::random(prng);
-        Self::from_signing_key(sk)
+        let sk = PrivateKey::random(prng);
+        Self::from_private_key(sk)
     }
 
-    pub fn from_signing_key(sk: SigningKey) -> Self {
+    pub fn from_private_key(sk: PrivateKey) -> Self {
         let vk = ark_ed_on_bn254::EdwardsAffine::generator().mul(&sk.0);
         Self {
-            signing_key: sk,
-            verifying_key: VerifyingKey(vk.into_affine()),
+            private_key: sk,
+            public_key: PublicKey(vk.into_affine()),
         }
     }
 
     /// Get the private key.
-    pub fn get_private_key(&self) -> SigningKey {
-        self.signing_key.clone()
+    pub fn get_private_key(&self) -> PrivateKey {
+        self.private_key.clone()
     }
 
     /// Get the public key.
-    pub fn get_public_key(&self) -> VerifyingKey {
-        self.verifying_key.clone()
+    pub fn get_public_key(&self) -> PublicKey {
+        self.public_key.clone()
     }
 
     pub fn sign<R: CryptoRng + RngCore>(
@@ -81,14 +93,22 @@ impl KeyPair {
     }
 }
 
-impl SigningKey {
+impl PrivateKey {
     pub fn random<R: CryptoRng + RngCore>(prng: &mut R) -> Self {
         let sk = ark_ed_on_bn254::Fr::rand(prng);
         Self(sk)
     }
 }
 
-impl VerifyingKey {
+impl PublicKey {
+    pub fn get_raw(&self) -> ark_ed_on_bn254::EdwardsProjective {
+        self.0.into()
+    }
+
+    pub fn rand<R: CryptoRng + RngCore>(prng: &mut R) -> Self {
+        Self(ark_ed_on_bn254::EdwardsAffine::rand(prng))
+    }
+
     pub fn verify(&self, s: &Signature, msg: &[ark_bn254::Fr]) -> Result<()> {
         let e_reduction =
             ark_ed_on_bn254::Fr::from_be_bytes_mod_order(&s.e.into_bigint().to_bytes_be());

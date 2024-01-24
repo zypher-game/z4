@@ -2,8 +2,11 @@ use std::collections::HashMap;
 
 use ark_ed_on_bn254::{EdwardsAffine, EdwardsProjective};
 use ark_ff::MontFp;
+use serde::{Deserialize, Serialize};
+use zplonk::utils::serialization::{ark_deserialize, ark_serialize};
+use zshuffle::Ciphertext;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum Suite {
     Club,
     Diamond,
@@ -15,7 +18,7 @@ impl Suite {
     pub const SUITES: [Suite; 4] = [Suite::Club, Suite::Diamond, Suite::Heart, Suite::Spade];
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Value {
     Two,
     Three,
@@ -74,7 +77,7 @@ impl PartialOrd for Value {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct ClassicCard {
     value: Value,
     suite: Suite,
@@ -122,6 +125,21 @@ impl std::fmt::Debug for ClassicCard {
         write!(f, "{}{}", suite, val)
     }
 }
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
+pub struct EncodingCard(
+    #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")]
+    pub  EdwardsProjective,
+);
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
+pub struct CryptoCard(pub Ciphertext<EdwardsProjective>);
+
+// #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
+// pub struct RevealCard(
+//     #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")]
+//     pub  zshuffle::RevealCard,
+// );
 
 lazy_static! {
     pub static ref ENCODING_CARDS_MAPPING: HashMap<zshuffle::Card, ClassicCard> = {

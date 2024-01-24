@@ -1,15 +1,18 @@
-use std::collections::HashMap;
-
 use crate::{
+    cards::EncodingCard,
     combination::CryptoCardCombination,
     errors::{PokerError, Result},
-    schnorr::{KeyPair, Signature},
+    schnorr::{KeyPair, PublicKey, Signature},
 };
 use ark_bn254::Fr;
 use rand_chacha::rand_core::{CryptoRng, RngCore};
-use zshuffle::{keygen::PublicKey, RevealCard, RevealProof};
+use serde::{Deserialize, Serialize};
+use zshuffle::{
+    reveal::{unmask, verify_reveal},
+    RevealProof,
+};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub enum PlayAction {
     PAAS,
     PLAY,
@@ -24,15 +27,7 @@ impl From<PlayAction> for u8 {
     }
 }
 
-pub struct Task {
-    pub room_id: usize,
-    pub game_id: usize,
-    pub num_round: usize,
-    pub players_order: Vec<PublicKey>,
-    pub games_env: Vec<Vec<PlayerEnv>>,
-    pub players_hand: HashMap<PublicKey, Vec<zshuffle::Card>>,
-}
-
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PlayerEnv {
     // The unique identifier for the game room.
     pub room_id: usize,
@@ -42,8 +37,8 @@ pub struct PlayerEnv {
     pub round_id: usize,
     pub action: PlayAction,
     pub play_cards: Option<CryptoCardCombination>,
-    pub owner_reveal: Vec<(RevealCard, RevealProof, PublicKey)>,
-    pub others_reveal: Vec<Vec<(RevealCard, RevealProof, PublicKey)>>,
+    pub owner_reveal: Vec<(EncodingCard, RevealProof, PublicKey)>,
+    pub others_reveal: Vec<Vec<(EncodingCard, RevealProof, PublicKey)>>,
     // Currently using schnorr signatures, with plans to transition to aggregated signatures in the future.
     pub signature: Signature,
 }
@@ -73,6 +68,86 @@ impl PlayerEnv {
     /// Construct a [PlayerEnvBuilder].
     pub fn builder() -> PlayerEnvBuilder {
         PlayerEnvBuilder::default()
+    }
+
+    pub fn verify_sign(&self, pk: &PublicKey) -> Result<()> {
+        let mut msg = vec![
+            Fr::from(self.room_id as u64),
+            Fr::from(self.game_id as u64),
+            Fr::from(self.round_id as u64),
+            Fr::from(Into::<u8>::into(self.action)),
+        ];
+
+        let cards = {
+            if self.action != PlayAction::PAAS {
+                self.play_cards.clone().unwrap().flatten()
+            } else {
+                vec![]
+            }
+        };
+
+        msg.extend(cards);
+
+        pk.verify(&self.signature, &msg)
+    }
+
+    pub fn verify_sign_with_params(
+        &self,
+        pk: &PublicKey,
+        room_id: usize,
+        game_id: usize,
+        round_id: usize,
+    ) -> Result<()> {
+        let mut msg = vec![
+            Fr::from(room_id as u64),
+            Fr::from(game_id as u64),
+            Fr::from(round_id as u64),
+            Fr::from(Into::<u8>::into(self.action)),
+        ];
+
+        let cards = {
+            if self.action != PlayAction::PAAS {
+                self.play_cards.clone().unwrap().flatten()
+            } else {
+                vec![]
+            }
+        };
+
+        msg.extend(cards);
+
+        pk.verify(&self.signature, &msg)
+    }
+
+    pub fn verify_and_get_reveals(&self) -> Result<Vec<EncodingCard>> {
+        let cards = self.play_cards.clone().ok_or(PokerError::NoCardError)?;
+        let vec = cards.to_vec();
+        assert_eq!(vec.len(), self.others_reveal.len());
+        assert_eq!(vec.len(), self.owner_reveal.len());
+
+        let mut unmasked_cards = Vec::new();
+
+        for (others, (owner, card)) in self
+            .others_reveal
+            .iter()
+            .zip(self.owner_reveal.iter().zip(vec.iter()))
+        {
+            let mut reveals = Vec::new();
+            for reveal in others.iter() {
+                verify_reveal(&reveal.2.get_raw(), &card.0, &reveal.0 .0, &reveal.1)
+                    .map_err(|_| PokerError::VerifyReVealError)?;
+                reveals.push(reveal.0 .0);
+            }
+
+            verify_reveal(&owner.2.get_raw(), &card.0, &owner.0 .0, &owner.1)
+                .map_err(|_| PokerError::VerifyReVealError)?;
+            reveals.push(owner.0 .0);
+
+            let unmasked_card =
+                unmask(&card.0, &reveals).map_err(|_| PokerError::UnmaskCardError)?;
+            unmasked_cards.push(EncodingCard(unmasked_card));
+        }
+
+        Ok(unmasked_cards)
     }
 }
 
@@ -108,13 +183,13 @@ impl PlayerEnvBuilder {
 
     pub fn others_reveal(
         mut self,
-        others_reveal: &[Vec<(RevealCard, RevealProof, PublicKey)>],
+        others_reveal: &[Vec<(EncodingCard, RevealProof, PublicKey)>],
     ) -> Self {
         self.inner.others_reveal = others_reveal.to_vec();
         self
     }
 
-    pub fn owner_reveal(mut self, owner_reveal: &[(RevealCard, RevealProof, PublicKey)]) -> Self {
+    pub fn owner_reveal(mut self, owner_reveal: &[(EncodingCard, RevealProof, PublicKey)]) -> Self {
         self.inner.owner_reveal = owner_reveal.to_vec();
         self
     }
@@ -182,6 +257,8 @@ impl PlayerEnvBuilder {
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashMap;
+
     use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 
     use super::*;
@@ -198,15 +275,6 @@ mod test {
             .build_and_sign(&key_pair, &mut prng)
             .unwrap();
 
-        let msg = vec![
-            Fr::from(player.room_id as u64),
-            Fr::from(player.game_id as u64),
-            Fr::from(player.round_id as u64),
-            Fr::from(Into::<u8>::into(player.action)),
-        ];
-        assert!(key_pair
-            .get_public_key()
-            .verify(&player.signature, &msg)
-            .is_ok());
+        assert!(player.verify_sign(&key_pair.get_public_key()).is_ok());
     }
 }

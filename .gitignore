@@ -1,5 +1,6 @@
-/target
+*target
 /.tdn
 /engine/.tdn
 /node/.tdn
 Cargo.lock
+.DS_Store

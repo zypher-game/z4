@@ -9,9 +9,9 @@ members = [
 resolver = "2"
 
 [patch.crates-io]
-ark-ff = { git = "https://github.com/arkworks-rs/algebra" }
-ark-ec = { git = "https://github.com/arkworks-rs/algebra" }
-ark-poly = { git = "https://github.com/arkworks-rs/algebra" }
-ark-serialize = { git = "https://github.com/arkworks-rs/algebra" }
-ark-bn254 = { git = "https://github.com/arkworks-rs/algebra" }
-ark-ed-on-bn254 = { git = "https://github.com/arkworks-rs/algebra" }
+ark-ff = { git = "https://github.com/confuseSUN/algebra", branch = "test"}
+ark-ec = { git = "https://github.com/confuseSUN/algebra", branch = "test" }
+ark-poly = { git = "https://github.com/confuseSUN/algebra", branch = "test" }
+ark-serialize = { git = "https://github.com/confuseSUN/algebra", branch = "test" }
+ark-bn254 = { git = "https://github.com/confuseSUN/algebra", branch = "test"}
+ark-ed-on-bn254 = { git = "https://github.com/confuseSUN/algebra", branch = "test" }
