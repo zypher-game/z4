@@ -31,10 +31,12 @@ impl From<PlayAction> for u8 {
 pub struct PlayerEnv {
     // The unique identifier for the game room.
     pub room_id: usize,
+
     // The identifier for the current game round.
-    pub game_id: usize,
-    // The identifier for the current turn within the round.
     pub round_id: usize,
+
+    // The identifier for the current turn within the round.
+    pub turn_id: usize,
     pub action: PlayAction,
     pub play_cards: Option<CryptoCardCombination>,
     pub owner_reveal: Vec<(EncodingCard, RevealProof, PublicKey)>,
@@ -47,7 +49,7 @@ impl Default for PlayerEnv {
     fn default() -> Self {
         Self {
             room_id: 0,
-            game_id: 0,
+            turn_id: 0,
             round_id: 0,
             action: PlayAction::PAAS,
             play_cards: None,
@@ -73,8 +75,8 @@ impl PlayerEnv {
     pub fn verify_sign(&self, pk: &PublicKey) -> Result<()> {
         let mut msg = vec![
             Fr::from(self.room_id as u64),
-            Fr::from(self.game_id as u64),
             Fr::from(self.round_id as u64),
+            Fr::from(self.turn_id as u64),
             Fr::from(Into::<u8>::into(self.action)),
         ];
 
@@ -95,13 +97,13 @@ impl PlayerEnv {
         &self,
         pk: &PublicKey,
         room_id: usize,
-        game_id: usize,
         round_id: usize,
+        turn_id: usize,
     ) -> Result<()> {
         let mut msg = vec![
             Fr::from(room_id as u64),
-            Fr::from(game_id as u64),
             Fr::from(round_id as u64),
+            Fr::from(turn_id as u64),
             Fr::from(Into::<u8>::into(self.action)),
         ];
 
@@ -161,8 +163,8 @@ impl PlayerEnvBuilder {
         self
     }
 
-    pub fn game_id(mut self, round_num: usize) -> Self {
-        self.inner.game_id = round_num;
+    pub fn turn_id(mut self, turn_id: usize) -> Self {
+        self.inner.turn_id = turn_id;
         self
     }
 
@@ -201,7 +203,7 @@ impl PlayerEnvBuilder {
                     || !self.inner.owner_reveal.is_empty()
                     || self.inner.play_cards.is_some()
                 {
-                    Err(PokerError::BuildPlayEnvParasError)
+                    Err(PokerError::BuildPlayEnvParamsError)
                 } else {
                     Ok(())
                 }
@@ -209,15 +211,22 @@ impl PlayerEnvBuilder {
             PlayAction::PLAY => {
                 if let Some(c) = &self.inner.play_cards {
                     // todo check  self.inner.others_reveal.len = participant
-                    if self.inner.others_reveal.iter().all(|x| x.len() == c.len())
+                    // {
+                    //     println!("----------");
+                    //     self.inner.others_reveal.iter().for_each(|x| println!("x1:{}",x.len()));
+                    //     println!("x2:{}",c.len());
+                    //     println!("x3:{}",self.inner.owner_reveal.len());
+                    //     println!("----------");
+                    // }
+                    if self.inner.others_reveal.len() != c.len()
                         || self.inner.owner_reveal.len() != c.len()
                     {
-                        Err(PokerError::BuildPlayEnvParasError)
+                        Err(PokerError::BuildPlayEnvParamsError)
                     } else {
                         Ok(())
                     }
                 } else {
-                    Err(PokerError::BuildPlayEnvParasError)
+                    Err(PokerError::BuildPlayEnvParamsError)
                 }
             }
         }
@@ -232,8 +241,8 @@ impl PlayerEnvBuilder {
 
         let mut msg = vec![
             Fr::from(self.inner.room_id as u64),
-            Fr::from(self.inner.game_id as u64),
             Fr::from(self.inner.round_id as u64),
+            Fr::from(self.inner.turn_id as u64),
             Fr::from(Into::<u8>::into(self.inner.action)),
         ];
 
@@ -257,11 +266,8 @@ impl PlayerEnvBuilder {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-
-    use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
-
     use super::*;
+    use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 
     #[test]
     fn test_player() {
@@ -269,8 +275,8 @@ mod test {
         let key_pair = KeyPair::sample(&mut prng);
         let player = PlayerEnvBuilder::new()
             .room_id(1)
-            .game_id(1)
             .round_id(1)
+            .turn_id(1)
             .action(PlayAction::PAAS)
             .build_and_sign(&key_pair, &mut prng)
             .unwrap();

@@ -1,7 +1,7 @@
 use poker_core::{
     cards::{ClassicCard, Suite::Club, Value::Ace},
     combination::ClassicCardCombination,
-    play::PlayAction,
+    play::{self, PlayAction},
     schnorr::PublicKey,
     task::{Task, TaskCommit},
 };
@@ -12,22 +12,21 @@ pub fn main() {
 
     let task: Task = serde_json::from_str(&task).unwrap();
 
-    let input_hand = task.players_hand.clone();
+    let mut input_hand = task.players_hand.clone();
 
     let Task {
         room_id,
-        game_id,
         num_round,
         players_order,
         players_env,
-        mut players_hand,
+        players_hand,
     } = task;
 
     assert_eq!(num_round, players_env.len());
 
     let n = players_order.len();
     let mut first_player_id = 0;
-    let mut round_max_cards = ClassicCardCombination::Single(ClassicCard::new(Ace, Club));
+    let mut round_max_cards = ClassicCardCombination::default();
     let mut winner = PublicKey::default();
 
     // check winner
@@ -36,10 +35,12 @@ pub fn main() {
         let mut round_first_player_id = 0;
 
         for (i, player) in round_env.iter().enumerate() {
+            let turn_id = i / n;
             let id = (first_player_id + i) % n;
             let pk = &players_order[id];
+
             assert!(player
-                .verify_sign_with_params(&pk, room_id, game_id, round_id)
+                .verify_sign_with_params(&pk, room_id, round_id, turn_id)
                 .is_ok());
 
             if i == 0 {
@@ -53,9 +54,10 @@ pub fn main() {
                 let classic = encoding.morph_to_classic().unwrap();
                 assert!(classic.sanity_check());
 
-                let hand = players_hand.get_mut(pk).unwrap();
-                assert!(reveals.iter().all(|x| hand.contains(x)));
-                hand.retain(|x| !reveals.contains(x));
+                let play_cards = player.play_cards.clone().unwrap().to_vec();
+                let hand = input_hand.get_mut(pk).unwrap();
+                assert!(play_cards.iter().all(|x| hand.contains(x)));
+                hand.retain(|x| !play_cards.contains(x));
 
                 if hand.len() == 0 && winner == PublicKey::default() {
                     winner = pk.clone()
@@ -75,9 +77,10 @@ pub fn main() {
                     assert!(classic.sanity_check());
                     assert!(classic > round_max_cards);
 
-                    let hand = players_hand.get_mut(pk).unwrap();
-                    assert!(reveals.iter().all(|x| hand.contains(x)));
-                    hand.retain(|x| !reveals.contains(x));
+                    let play_cards = player.play_cards.clone().unwrap().to_vec();
+                    let hand = input_hand.get_mut(pk).unwrap();
+                    assert!(play_cards.iter().all(|x| hand.contains(x)));
+                    hand.retain(|x| !play_cards.contains(x));
 
                     if hand.len() == 0 && winner == PublicKey::default() {
                         winner = pk.clone()
@@ -94,9 +97,8 @@ pub fn main() {
 
     env::commit(&TaskCommit {
         room_id,
-        game_id,
         players_order,
-        players_hand: input_hand,
+        players_hand,
         winner,
     });
 }

@@ -4,7 +4,7 @@ use std::fmt::{Display, Formatter};
 pub enum PokerError {
     SignatureError,
     VerifySignatureError,
-    BuildPlayEnvParasError,
+    BuildPlayEnvParamsError,
     MorphError,
     NoCardError,
     VerifyReVealError,
@@ -18,7 +18,7 @@ impl Display for PokerError {
         formatter.write_str(match self {
             Self::SignatureError => "Signature failed",
             Self::VerifySignatureError => "Signature verification failed",
-            Self::BuildPlayEnvParasError => "Incorrect parameters of playerEnv",
+            Self::BuildPlayEnvParamsError => "Incorrect parameters of playerEnv",
             Self::MorphError => "Merph to classic card failed",
             Self::NoCardError => "No card error",
             Self::VerifyReVealError => "Verify reveal failed",

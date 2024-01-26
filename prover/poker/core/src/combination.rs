@@ -1,5 +1,10 @@
 use crate::{
-    cards::{ClassicCard, CryptoCard, EncodingCard, Value, ENCODING_CARDS_MAPPING},
+    cards::{
+        ClassicCard, CryptoCard, EncodingCard,
+        Suite::Club,
+        Value::{self, Ace},
+        ENCODING_CARDS_MAPPING,
+    },
     combination::Combination::*,
     errors::{PokerError, Result},
 };
@@ -96,6 +101,12 @@ impl<T> Combination<T> {
 
 pub type ClassicCardCombination = Combination<ClassicCard>;
 
+impl Default for ClassicCardCombination {
+    fn default() -> Self {
+        Self::Single(ClassicCard::new(Ace, Club))
+    }
+}
+
 impl PartialEq for ClassicCardCombination {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -182,7 +193,7 @@ impl PartialOrd for ClassicCardCombination {
             match (self, other) {
                 (Single(x), Single(y)) => x.weight().partial_cmp(&y.weight()),
 
-                (Pair(x, y), Pair(_, _)) => x.weight().partial_cmp(&y.weight()),
+                (Pair(x, _), Pair(y, _)) => x.weight().partial_cmp(&y.weight()),
 
                 (ThreeOfAKind(x, _, _), ThreeOfAKind(y, _, _)) => {
                     x.weight().partial_cmp(&y.weight())
@@ -290,7 +301,7 @@ impl ClassicCardCombination {
                     return false;
                 }
 
-                x.windows(2).all(|x| x[0].weight() == x[1].weight() + 1)
+                x.windows(2).all(|x| x[1].weight() == x[0].weight() + 1)
             }
 
             DoubleStraight(x) => {
@@ -307,7 +318,7 @@ impl ClassicCardCombination {
 
                 let condition2 = stright
                     .windows(2)
-                    .all(|y| y[0].weight() == y[1].weight() + 1);
+                    .all(|y| y[1].weight() == y[0].weight() + 1);
 
                 condition1 && condition2
             }
@@ -328,7 +339,7 @@ impl ClassicCardCombination {
 
                 let condition2 = stright
                     .windows(2)
-                    .all(|y| y[0].weight() == y[1].weight() + 1);
+                    .all(|y| y[1].weight() == y[0].weight() + 1);
 
                 condition1 && condition2
             }
