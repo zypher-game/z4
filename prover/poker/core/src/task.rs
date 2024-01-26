@@ -1,11 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::{
-    cards::CryptoCard,
-    play::PlayerEnv,
-    schnorr::PublicKey,
-};
+use crate::{cards::CryptoCard, play::PlayerEnv, schnorr::PublicKey};
 use serde_with::serde_as;
 
 #[serde_as]

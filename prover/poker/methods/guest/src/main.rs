@@ -1,7 +1,6 @@
 use poker_core::{
-    cards::{ClassicCard, Suite::Club, Value::Ace},
     combination::ClassicCardCombination,
-    play::{self, PlayAction},
+    play::PlayAction,
     schnorr::PublicKey,
     task::{Task, TaskCommit},
 };
@@ -28,11 +27,16 @@ pub fn main() {
     let mut first_player_id = 0;
     let mut round_max_cards = ClassicCardCombination::default();
     let mut winner = PublicKey::default();
-
-    // check winner
+    assert!(players_order.iter().all(|x| *x != winner));
 
     for (round_id, round_env) in players_env.iter().enumerate() {
         let mut round_first_player_id = 0;
+    
+        assert!(round_env
+            .iter()
+            .rev()
+            .take(n - 1)
+            .all(|x| x.action == PlayAction::PAAS));
 
         for (i, player) in round_env.iter().enumerate() {
             let turn_id = i / n;

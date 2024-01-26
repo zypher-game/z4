@@ -211,13 +211,6 @@ impl PlayerEnvBuilder {
             PlayAction::PLAY => {
                 if let Some(c) = &self.inner.play_cards {
                     // todo check  self.inner.others_reveal.len = participant
-                    // {
-                    //     println!("----------");
-                    //     self.inner.others_reveal.iter().for_each(|x| println!("x1:{}",x.len()));
-                    //     println!("x2:{}",c.len());
-                    //     println!("x3:{}",self.inner.owner_reveal.len());
-                    //     println!("----------");
-                    // }
                     if self.inner.others_reveal.len() != c.len()
                         || self.inner.owner_reveal.len() != c.len()
                     {
