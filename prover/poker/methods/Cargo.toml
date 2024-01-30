@@ -7,4 +7,4 @@ edition = "2021"
 methods = ["guest"]
 
 [build-dependencies]
-risc0-build = { version = "0.19" }
+risc0-build = { version = "0.20" }

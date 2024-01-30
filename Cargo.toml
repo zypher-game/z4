@@ -15,3 +15,4 @@ ark-poly = { git = "https://github.com/confuseSUN/algebra", branch = "test" }
 ark-serialize = { git = "https://github.com/confuseSUN/algebra", branch = "test" }
 ark-bn254 = { git = "https://github.com/confuseSUN/algebra", branch = "test"}
 ark-ed-on-bn254 = { git = "https://github.com/confuseSUN/algebra", branch = "test" }
+ark-groth16 = { git = "https://github.com/arkworks-rs/groth16" }

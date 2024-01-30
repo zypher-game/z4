@@ -9,6 +9,8 @@ pub enum PokerError {
     NoCardError,
     VerifyReVealError,
     UnmaskCardError,
+    SerializationError,
+    DeserializationError,
 }
 
 pub type Result<T> = core::result::Result<T, PokerError>;
@@ -23,6 +25,8 @@ impl Display for PokerError {
             Self::NoCardError => "No card error",
             Self::VerifyReVealError => "Verify reveal failed",
             Self::UnmaskCardError => "Unmask card failed",
+            Self::SerializationError => "Serialization error",
+            Self::DeserializationError => "Deserialization error",
         })
     }
 }

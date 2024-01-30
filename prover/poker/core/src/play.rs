@@ -4,7 +4,7 @@ use crate::{
     errors::{PokerError, Result},
     schnorr::{KeyPair, PublicKey, Signature},
 };
-use ark_bn254::Fr;
+use ark_serialize::CanonicalSerialize;
 use rand_chacha::rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use zshuffle::{
@@ -73,24 +73,23 @@ impl PlayerEnv {
     }
 
     pub fn verify_sign(&self, pk: &PublicKey) -> Result<()> {
-        let mut msg = vec![
-            Fr::from(self.room_id as u64),
-            Fr::from(self.round_id as u64),
-            Fr::from(self.turn_id as u64),
-            Fr::from(Into::<u8>::into(self.action)),
-        ];
+        let mut bytes = vec![];
+        bytes.extend(self.room_id.to_be_bytes());
+        bytes.extend(self.round_id.to_be_bytes());
+        bytes.extend(self.turn_id.to_be_bytes());
+        bytes.extend(Into::<u8>::into(self.action).to_be_bytes());
 
-        let cards = {
-            if self.action != PlayAction::PAAS {
-                self.play_cards.clone().unwrap().flatten()
-            } else {
-                vec![]
+        if self.action == PlayAction::PLAY {
+            let vec = self.play_cards.clone().unwrap().flatten();
+            for i in vec.iter() {
+                let mut b = vec![];
+                i.serialize_uncompressed(&mut b)
+                    .map_err(|_| PokerError::SerializationError)?;
+                bytes.extend(b);
             }
-        };
+        }
 
-        msg.extend(cards);
-
-        pk.verify(&self.signature, &msg)
+        pk.verify(&self.signature, &bytes)
     }
 
     pub fn verify_sign_with_params(
@@ -100,24 +99,23 @@ impl PlayerEnv {
         round_id: usize,
         turn_id: usize,
     ) -> Result<()> {
-        let mut msg = vec![
-            Fr::from(room_id as u64),
-            Fr::from(round_id as u64),
-            Fr::from(turn_id as u64),
-            Fr::from(Into::<u8>::into(self.action)),
-        ];
+        let mut bytes = vec![];
+        bytes.extend(room_id.to_be_bytes());
+        bytes.extend(round_id.to_be_bytes());
+        bytes.extend(turn_id.to_be_bytes());
+        bytes.extend(Into::<u8>::into(self.action).to_be_bytes());
 
-        let cards = {
-            if self.action != PlayAction::PAAS {
-                self.play_cards.clone().unwrap().flatten()
-            } else {
-                vec![]
+        if self.action == PlayAction::PLAY {
+            let vec = self.play_cards.clone().unwrap().flatten();
+            for i in vec.iter() {
+                let mut b = vec![];
+                i.serialize_uncompressed(&mut b)
+                    .map_err(|_| PokerError::SerializationError)?;
+                bytes.extend(b);
             }
-        };
+        }
 
-        msg.extend(cards);
-
-        pk.verify(&self.signature, &msg)
+        pk.verify(&self.signature, &bytes)
     }
 
     pub fn verify_and_get_reveals(&self) -> Result<Vec<EncodingCard>> {
@@ -232,24 +230,24 @@ impl PlayerEnvBuilder {
     ) -> Result<PlayerEnv> {
         self.sanity_check()?;
 
-        let mut msg = vec![
-            Fr::from(self.inner.room_id as u64),
-            Fr::from(self.inner.round_id as u64),
-            Fr::from(self.inner.turn_id as u64),
-            Fr::from(Into::<u8>::into(self.inner.action)),
-        ];
+        let mut bytes = vec![];
+        bytes.extend(self.inner.room_id.to_be_bytes());
+        bytes.extend(self.inner.round_id.to_be_bytes());
+        bytes.extend(self.inner.turn_id.to_be_bytes());
+        bytes.extend(Into::<u8>::into(self.inner.action).to_be_bytes());
 
-        let cards = {
-            if self.inner.action != PlayAction::PAAS {
-                self.inner.play_cards.clone().unwrap().flatten()
-            } else {
-                vec![]
+        if self.inner.action == PlayAction::PLAY {
+            // todo  to_bytes
+            let vec = self.inner.play_cards.clone().unwrap().flatten();
+            for i in vec.iter() {
+                let mut b = vec![];
+                i.serialize_uncompressed(&mut b)
+                    .map_err(|_| PokerError::SerializationError)?;
+                bytes.extend(b);
             }
-        };
+        }
 
-        msg.extend(cards);
-
-        let s = key.sign(&msg, prng)?;
+        let s = key.sign(&bytes, prng)?;
 
         self.inner.signature = s;
 

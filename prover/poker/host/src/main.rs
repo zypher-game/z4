@@ -3,34 +3,30 @@ use poker_core::{
     cards::{CryptoCard, EncodingCard, ENCODING_CARDS_MAPPING},
     combination::CryptoCardCombination,
     play::{PlayAction, PlayerEnvBuilder},
-    schnorr::{KeyPair, PublicKey},
+    schnorr::KeyPair,
     task::Task,
 };
 use poker_methods::{POKER_METHOD_ELF, POKER_METHOD_ID};
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use risc0_zkvm::{default_prover, ExecutorEnv, Receipt};
 use std::collections::HashMap;
-use std::ops::Add;
 use zshuffle::{
-    mask::{mask, verify_mask},
     reveal::{reveal, unmask, verify_reveal},
     Ciphertext,
 };
 
 pub fn prove_task(task: &Task) {
-    // todo
-    let serialized = serde_json::to_string(&task).unwrap();
-
     let env = ExecutorEnv::builder()
-        .write(&serialized)
+        .write(&task)
         .unwrap()
         .build()
         .unwrap();
 
     let prover = default_prover();
 
-    //    .prove
-    let receipt = prover.prove_elf(env, POKER_METHOD_ELF).unwrap();
+    let start = std::time::Instant::now();
+    let receipt = prover.prove(env, POKER_METHOD_ELF).unwrap();
+    println!("prover time: {:.2?}", start.elapsed());
 
     println!("I can prove it!");
 }

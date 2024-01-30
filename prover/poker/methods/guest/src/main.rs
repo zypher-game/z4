@@ -7,9 +7,7 @@ use poker_core::{
 use risc0_zkvm::guest::env;
 
 pub fn main() {
-    let task: String = env::read();
-
-    let task: Task = serde_json::from_str(&task).unwrap();
+  let task: Task = env::read();
 
     let mut input_hand = task.players_hand.clone();
 
@@ -31,6 +29,8 @@ pub fn main() {
 
     for (round_id, round_env) in players_env.iter().enumerate() {
         let mut round_first_player_id = 0;
+
+        println!("cycle : {}",env::cycle_count());
     
         assert!(round_env
             .iter()

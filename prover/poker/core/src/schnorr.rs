@@ -3,14 +3,13 @@ use std::ops::{Add, Mul, Sub};
 use crate::errors::{PokerError, Result};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ed_on_bn254::EdwardsAffine;
-use ark_ff::{BigInteger, PrimeField};
+use ark_ff::PrimeField;
+use ark_serialize::CanonicalSerialize;
 use ark_std::UniformRand;
 use rand_chacha::rand_core::{CryptoRng, RngCore};
+use risc0_zkvm::sha::{Impl, Sha256};
 use serde::{Deserialize, Serialize};
-use zplonk::{
-    anemoi::{AnemoiJive, AnemoiJive254},
-    utils::serialization::{ark_deserialize, ark_serialize},
-};
+use zplonk::utils::serialization::{ark_deserialize, ark_serialize};
 
 /// The public key.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -23,7 +22,7 @@ pub struct PrivateKey(
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, Hash, Default)]
 pub struct PublicKey(
     #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")]
-    ark_ed_on_bn254::EdwardsAffine,
+    pub  ark_ed_on_bn254::EdwardsAffine,
 );
 
 /// The signature.
@@ -32,7 +31,7 @@ pub struct Signature {
     #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")]
     pub s: ark_ed_on_bn254::Fr,
     #[serde(serialize_with = "ark_serialize", deserialize_with = "ark_deserialize")]
-    pub e: ark_bn254::Fr,
+    pub e: ark_ed_on_bn254::Fr,
 }
 
 /// The keypair for schnorr signature.
@@ -75,28 +74,30 @@ impl KeyPair {
         self.public_key.clone()
     }
 
-    pub fn sign<R: CryptoRng + RngCore>(
-        &self,
-        msg: &[ark_bn254::Fr],
-        prng: &mut R,
-    ) -> Result<Signature> {
+    pub fn sign<R: CryptoRng + RngCore>(&self, msg: &[u8], prng: &mut R) -> Result<Signature> {
         let r = ark_ed_on_bn254::Fr::rand(prng);
         let big_r = EdwardsAffine::generator().mul(&r).into_affine();
 
-        let mut input = vec![
-            self.get_public_key().0.x,
-            self.get_public_key().0.y,
-            big_r.x,
-            big_r.y,
-        ];
-        input.extend_from_slice(msg);
+        let mut bytes = msg.to_vec();
 
-        let e = AnemoiJive254::eval_variable_length_hash(&input);
+        let mut pk_bytes = vec![];
+        self.get_public_key()
+            .get_raw()
+            .serialize_uncompressed(&mut pk_bytes)
+            .map_err(|_| PokerError::SerializationError)?;
+        bytes.extend(pk_bytes);
 
-        let e_reduction =
-            ark_ed_on_bn254::Fr::from_be_bytes_mod_order(&e.into_bigint().to_bytes_be());
+        let mut r_bytes = vec![];
+        big_r
+            .serialize_uncompressed(&mut r_bytes)
+            .map_err(|_| PokerError::SerializationError)?;
+        bytes.extend(r_bytes);
 
-        let s = r.sub(&self.get_private_key().0.mul(e_reduction));
+        let b = Impl::hash_bytes(&bytes);
+
+        let e = ark_ed_on_bn254::Fr::from_be_bytes_mod_order(&b.as_bytes());
+
+        let s = r.sub(&self.get_private_key().0.mul(e));
 
         Ok(Signature { s, e })
     }
@@ -118,18 +119,28 @@ impl PublicKey {
         Self(ark_ed_on_bn254::EdwardsAffine::rand(prng))
     }
 
-    pub fn verify(&self, s: &Signature, msg: &[ark_bn254::Fr]) -> Result<()> {
-        let e_reduction =
-            ark_ed_on_bn254::Fr::from_be_bytes_mod_order(&s.e.into_bigint().to_bytes_be());
+    pub fn verify(&self, s: &Signature, msg: &[u8]) -> Result<()> {
         let big_r = EdwardsAffine::generator()
             .mul(&s.s)
-            .add(self.0.mul(&e_reduction))
+            .add(self.0.mul(&s.e))
             .into_affine();
 
-        let mut input = vec![self.0.x, self.0.y, big_r.x, big_r.y];
-        input.extend_from_slice(msg);
+        let mut bytes = msg.to_vec();
 
-        let e = AnemoiJive254::eval_variable_length_hash(&input);
+        let mut pk_bytes = vec![];
+        self.get_raw()
+            .serialize_uncompressed(&mut pk_bytes)
+            .map_err(|_| PokerError::SerializationError)?;
+        bytes.extend(pk_bytes);
+
+        let mut r_bytes = vec![];
+        big_r
+            .serialize_uncompressed(&mut r_bytes)
+            .map_err(|_| PokerError::SerializationError)?;
+        bytes.extend(r_bytes);
+
+        let b = Impl::hash_bytes(&bytes);
+        let e = ark_ed_on_bn254::Fr::from_be_bytes_mod_order(&b.as_bytes());
 
         if e != s.e {
             Err(PokerError::VerifySignatureError)
@@ -142,19 +153,14 @@ impl PublicKey {
 #[cfg(test)]
 mod test {
     use crate::schnorr::KeyPair;
-    use ark_std::UniformRand;
     use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 
     #[test]
     fn test_schnorr() {
         let mut prng = ChaChaRng::from_seed([0u8; 32]);
         let key_pair = KeyPair::sample(&mut prng);
-        let msg = vec![
-            ark_bn254::Fr::rand(&mut prng),
-            ark_bn254::Fr::rand(&mut prng),
-            ark_bn254::Fr::rand(&mut prng),
-        ];
-        let s = key_pair.sign(&msg, &mut prng).unwrap();
-        assert!(key_pair.get_public_key().verify(&s, &msg).is_ok());
+        let msg = b"If I play the 'king bomb', how would you respond?";
+        let s = key_pair.sign(msg, &mut prng).unwrap();
+        assert!(key_pair.get_public_key().verify(&s, msg).is_ok());
     }
 }

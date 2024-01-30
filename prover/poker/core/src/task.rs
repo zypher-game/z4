@@ -1,9 +1,8 @@
+use crate::play::PlayerEnv;
+use crate::{cards::CryptoCard, schnorr::PublicKey};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-
-use crate::{cards::CryptoCard, play::PlayerEnv, schnorr::PublicKey};
 use serde_with::serde_as;
-
+use std::collections::HashMap;
 #[serde_as]
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Task {
