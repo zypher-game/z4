@@ -73,6 +73,22 @@ pub trait Param: Sized + Send + Default {
     fn from_bytes(bytes: &[u8]) -> Result<Self>;
 }
 
+/// Timer tasks when game room started
+#[async_trait::async_trait]
+pub trait Task: Send + Sync {
+    type H: Handler;
+
+    fn timer(&self) -> u64;
+
+    async fn run(
+        &mut self,
+        state: &mut Self::H,
+    ) -> Result<HandleResult<<Self::H as Handler>::Param>>;
+}
+
+/// Type helper for tasks
+pub type Tasks<H> = Vec<Box<dyn Task<H = H>>>;
+
 /// Handle message received from players
 #[async_trait::async_trait]
 pub trait Handler: Send + Sized + 'static {
@@ -89,7 +105,7 @@ pub trait Handler: Send + Sized + 'static {
     }
 
     /// create new room scan from chain
-    async fn create(peers: &[(PeerId, PublicKey)]) -> (Self, Vec<Box<dyn Task<H = Self>>>);
+    async fn create(peers: &[(PeerId, PublicKey)]) -> (Self, Tasks<Self>);
 
     /// handle message in a room
     async fn handle(
@@ -98,19 +114,6 @@ pub trait Handler: Send + Sized + 'static {
         method: &str,
         param: Self::Param,
     ) -> Result<HandleResult<Self::Param>>;
-}
-
-/// Timer tasks when game room started
-#[async_trait::async_trait]
-pub trait Task: Send + Sync {
-    type H: Handler;
-
-    fn timer(&self) -> u64;
-
-    async fn run(
-        &mut self,
-        state: &mut Self::H,
-    ) -> Result<HandleResult<<Self::H as Handler>::Param>>;
 }
 
 /// Default vector json values for Param

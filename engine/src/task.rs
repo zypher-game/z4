@@ -12,7 +12,7 @@ use tokio::{
 use crate::{
     engine::{handle_result, HandlerRoom},
     types::ChainMessage,
-    Handler, Task,
+    Handler, Task, Tasks,
 };
 
 pub enum TaskMessage {
@@ -25,7 +25,7 @@ pub async fn handle_tasks<H: Handler>(
     send: Sender<SendMessage>,
     chain_send: UnboundedSender<ChainMessage>,
     mut recv: Receiver<TaskMessage>,
-    tasks: Vec<Box<dyn Task<H = H>>>,
+    tasks: Tasks<H>,
 ) {
     let mut senders = vec![];
     for task in tasks {
