@@ -7,7 +7,11 @@ use crate::{PeerId, PublicKey};
 pub enum Error {
     /// Invalid params
     Params,
-    /// not has the room
+    /// Timeout
+    Timeout,
+    /// Not has the player
+    NoPlayer,
+    /// Not has the room
     NoRoom,
     /// serialize error
     Serialize,
@@ -32,6 +36,7 @@ pub struct P2pMessage<'a> {
 pub enum ChainMessage {
     StartRoom(RoomId, Vec<PeerId>, Vec<PublicKey>),
     AcceptRoom(RoomId, PeerId),
+    OverRoom(RoomId, Vec<u8>, Vec<u8>),
     Reprove,
 }
 

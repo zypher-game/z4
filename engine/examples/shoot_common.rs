@@ -8,8 +8,8 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use z4_engine::{
     json,
     request::{message_channel, run_p2p_channel, run_ws_channel, ChannelMessage},
-    Error, HandleResult, Handler, Param, Peer, PeerId, PeerKey, PublicKey, Result, RoomId,
-    SecretKey, Value,
+    DefaultParams, Error, HandleResult, Handler, Param, Peer, PeerId, PeerKey, PublicKey, Result,
+    RoomId, SecretKey, Value,
 };
 use zplonk::{
     gen_params::{load_lagrange_params, load_srs_params, ProverParams, VerifierParams},
@@ -36,34 +36,9 @@ pub struct ShootHandler {
     operations: Vec<ShootOperation>,
 }
 
-#[derive(Default)]
-pub struct Params(Vec<Value>);
-
-impl Param for Params {
-    fn to_value(self) -> Value {
-        Value::Array(self.0)
-    }
-
-    fn from_value(value: Value) -> Result<Self> {
-        match value {
-            Value::Array(p) => Ok(Params(p)),
-            o => Ok(Params(vec![o])),
-        }
-    }
-
-    fn to_bytes(&self) -> Vec<u8> {
-        serde_json::to_vec(&self.0).unwrap_or(vec![])
-    }
-
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        let v: Value = serde_json::from_slice(bytes)?;
-        Self::from_value(v)
-    }
-}
-
 #[async_trait::async_trait]
 impl Handler for ShootHandler {
-    type Param = Params;
+    type Param = DefaultParams;
 
     async fn create(peers: &[(PeerId, PublicKey)]) -> Self {
         let accounts = peers
@@ -92,7 +67,7 @@ impl Handler for ShootHandler {
         &mut self,
         player: PeerId,
         method: &str,
-        params: Params,
+        params: DefaultParams,
     ) -> Result<HandleResult<Self::Param>> {
         let mut params = params.0;
 
@@ -133,7 +108,7 @@ impl Handler for ShootHandler {
                 let mut result = HandleResult::default();
                 result.add_all(
                     "shoot",
-                    Params(vec![
+                    DefaultParams(vec![
                         player.to_hex().into(),
                         value,
                         a_bullet.into(),
@@ -201,7 +176,7 @@ pub async fn mock_player_with_rpc(
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
     // create ws channel with message
-    let (in_send, in_recv) = message_channel::<Params>();
+    let (in_send, in_recv) = message_channel::<DefaultParams>();
     let out_recv = run_ws_channel(&player, room_id, in_recv, "ws://127.0.0.1:8000")
         .await
         .unwrap();
@@ -220,7 +195,7 @@ pub async fn mock_player_with_p2p(
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
     // create p2p channel with message
-    let (in_send, in_recv) = message_channel::<Params>();
+    let (in_send, in_recv) = message_channel::<DefaultParams>();
     let mut server = Peer::peer(sid);
     server.socket = "127.0.0.1:7364".parse().unwrap();
     let out_recv = run_p2p_channel(&player, room_id, in_recv, server)
@@ -234,8 +209,8 @@ async fn mock_player(
     room_id: RoomId,
     player: PeerKey,
     mut opponents: Vec<PeerId>,
-    in_send: UnboundedSender<ChannelMessage<Params>>,
-    mut out_recv: UnboundedReceiver<ChannelMessage<Params>>,
+    in_send: UnboundedSender<ChannelMessage<DefaultParams>>,
+    mut out_recv: UnboundedReceiver<ChannelMessage<DefaultParams>>,
 ) {
     let my_id = player.peer_id();
     let mut seed = [0u8; 32];
@@ -250,7 +225,7 @@ async fn mock_player(
 
     enum Work {
         Shoot(PeerId),
-        Shooted(ChannelMessage<Params>),
+        Shooted(ChannelMessage<DefaultParams>),
     }
 
     loop {
@@ -267,7 +242,7 @@ async fn mock_player(
 
         match work {
             Some(Work::Shoot(someone)) => {
-                let params = Params(vec![json!(my_id.to_hex()), json!(someone.to_hex())]);
+                let params = DefaultParams(vec![json!(my_id.to_hex()), json!(someone.to_hex())]);
                 in_send.send((room_id, "shoot".to_owned(), params)).unwrap();
             }
             Some(Work::Shooted((_room, method, params))) => match method.as_str() {

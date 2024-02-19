@@ -1,11 +1,16 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use tdn::{
     prelude::{
         start_with_config_and_key, NetworkType, PeerId, ReceiveMessage, SendMessage, SendType,
     },
     types::rpc::rpc_response,
 };
-use tokio::{select, sync::mpsc::Sender};
+use tokio::{
+    select,
+    sync::mpsc::{channel, Sender, UnboundedSender},
+    sync::Mutex,
+};
 
 use crate::{
     config::Config,
@@ -14,27 +19,27 @@ use crate::{
     room::{ConnectType, Room},
     rpc::handle_rpc,
     scan::{chain_channel, listen as scan_listen},
+    task::{handle_tasks, TaskMessage},
     types::*,
-    HandleResult, Handler, Param, PublicKey, Task,
+    HandleResult, Handler, Param, PublicKey,
 };
 
-struct HandlerRoom<H: Handler> {
-    handler: H,
-    room: Room,
+pub struct HandlerRoom<H: Handler> {
+    pub handler: H,
+    pub room: Room,
+    tasks: Sender<TaskMessage>,
 }
 
 /// Engine
 pub struct Engine<H: Handler> {
     /// config of engine and network
     config: Config,
-    /// tasks need run in every room when created
-    tasks: Vec<Box<dyn Task<H = H>>>,
     /// rooms which is running
-    rooms: HashMap<RoomId, HandlerRoom<H>>,
+    rooms: HashMap<RoomId, Arc<Mutex<HandlerRoom<H>>>>,
     /// rooms which is waiting create
     pending: HashMap<RoomId, Vec<(PeerId, PublicKey)>>,
     /// connected peers
-    onlines: HashMap<PeerId, Vec<RoomId>>,
+    onlines: Arc<Mutex<HashMap<PeerId, Vec<RoomId>>>>,
 }
 
 impl<H: Handler> Engine<H> {
@@ -42,17 +47,10 @@ impl<H: Handler> Engine<H> {
     pub fn init(config: Config) -> Self {
         Self {
             config,
-            tasks: vec![],
             rooms: HashMap::new(),
             pending: HashMap::new(),
-            onlines: HashMap::new(),
+            onlines: Arc::new(Mutex::new(HashMap::new())),
         }
-    }
-
-    /// add task to all running room
-    pub fn add_task(mut self, task: impl Task<H = H> + 'static) -> Self {
-        self.tasks.push(Box::new(task));
-        self
     }
 
     /// create a pending room when scan from chain
@@ -72,61 +70,75 @@ impl<H: Handler> Engine<H> {
     }
 
     /// create a room when scan from chain
-    pub async fn start_room(&mut self, id: RoomId) {
+    pub async fn start_room(
+        &mut self,
+        id: RoomId,
+        send: Sender<SendMessage>,
+        chain_send: UnboundedSender<ChainMessage>,
+    ) {
         if let Some(peers) = self.pending.remove(&id) {
-            let handler = H::create(&peers).await;
+            let (handler, tasks) = H::create(&peers).await;
             let ids: Vec<PeerId> = peers.iter().map(|(id, _pk)| *id).collect();
-            self.rooms.insert(
-                id,
-                HandlerRoom {
-                    handler,
-                    room: Room::new(id, &ids),
-                },
-            );
+            // running tasks
+            let (tx, rx) = channel(1);
+            let room = Arc::new(Mutex::new(HandlerRoom {
+                handler,
+                tasks: tx,
+                room: Room::new(id, &ids),
+            }));
+
+            tokio::spawn(handle_tasks(id, room.clone(), send, chain_send, rx, tasks));
+            self.rooms.insert(id, room);
         }
     }
 
-    pub fn get_room(&self, id: &RoomId) -> Option<&Room> {
-        self.rooms.get(id).map(|h| &h.room)
-    }
-
-    pub fn get_mut_handler(&mut self, id: &RoomId) -> Option<&mut H> {
-        self.rooms.get_mut(id).map(|h| &mut h.handler)
-    }
-
-    pub fn has_peer(&self, peer: &PeerId) -> bool {
-        if let Some(rooms) = self.onlines.get(&peer) {
-            !rooms.is_empty()
-        } else {
-            false
+    pub async fn over_room(&mut self, id: RoomId) {
+        if let Some(room) = self.rooms.remove(&id) {
+            let _ = room.lock().await.tasks.send(TaskMessage::Close).await;
         }
+        self.pending.remove(&id);
+
+        // TODO clear onlines
     }
 
     pub fn has_room(&self, id: &RoomId) -> bool {
         self.rooms.contains_key(id)
     }
 
-    pub fn is_room_peer(&self, id: &RoomId, peer: &PeerId) -> bool {
+    pub fn get_room(&self, id: &RoomId) -> &Arc<Mutex<HandlerRoom<H>>> {
+        self.rooms.get(id).unwrap() // safe before check
+    }
+
+    pub async fn is_room_peer(&self, id: &RoomId, peer: &PeerId) -> bool {
         if let Some(hr) = self.rooms.get(id) {
-            hr.room.contains(peer)
+            hr.lock().await.room.contains(peer)
         } else {
             false
         }
     }
 
-    pub fn online(&mut self, id: RoomId, peer: PeerId, ctype: ConnectType) -> bool {
-        let is_ok = if let Some(hr) = self.rooms.get_mut(&id) {
-            hr.room.online(peer, ctype)
+    pub async fn has_peer(&self, peer: &PeerId) -> bool {
+        if let Some(rooms) = self.onlines.lock().await.get(&peer) {
+            !rooms.is_empty()
+        } else {
+            false
+        }
+    }
+
+    pub async fn online(&self, id: RoomId, peer: PeerId, ctype: ConnectType) -> bool {
+        let is_ok = if let Some(hr) = self.rooms.get(&id) {
+            hr.lock().await.room.online(peer, ctype)
         } else {
             false
         };
 
         if is_ok {
-            self.onlines
+            let mut onlines_lock = self.onlines.lock().await;
+            onlines_lock
                 .entry(peer)
                 .and_modify(|rooms| {
                     if !rooms.contains(&id) {
-                        rooms.push(id);
+                        rooms.push(id)
                     }
                 })
                 .or_insert(vec![id]);
@@ -135,11 +147,12 @@ impl<H: Handler> Engine<H> {
         is_ok
     }
 
-    pub fn offline(&mut self, peer: PeerId) {
-        if let Some(rooms) = self.onlines.remove(&peer) {
+    pub async fn offline(&self, peer: PeerId) {
+        let mut onlines_lock = self.onlines.lock().await;
+        if let Some(rooms) = onlines_lock.remove(&peer) {
             for rid in rooms {
-                if let Some(hr) = self.rooms.get_mut(&rid) {
-                    hr.room.offline(peer);
+                if let Some(hr) = self.rooms.get(&rid) {
+                    hr.lock().await.room.offline(peer);
                 }
             }
         }
@@ -155,8 +168,10 @@ impl<H: Handler> Engine<H> {
         let (chain_send, mut chain_recv) = chain_channel();
         let (pool_send, pool_recv) = pool_channel();
         if let Some((scan_providers, pool_provider, chain_net)) = chain_option {
-            tokio::spawn(scan_listen(scan_providers, chain_net, chain_send.clone()));
-            tokio::spawn(pool_listen(pool_provider, chain_net, chain_send, pool_recv));
+            let send1 = chain_send.clone();
+            let send2 = chain_send.clone();
+            tokio::spawn(scan_listen(scan_providers, chain_net, send1));
+            tokio::spawn(pool_listen(pool_provider, chain_net, send2, pool_recv));
         }
 
         loop {
@@ -175,10 +190,10 @@ impl<H: Handler> Engine<H> {
                         if !self.has_room(&gid) {
                             continue;
                         }
-                        let _ = handle_p2p(&mut self, &send, &pool_send, gid, msg).await;
+                        let _ = handle_p2p(&mut self, &send, &chain_send, gid, msg).await;
                     }
                     ReceiveMessage::Rpc(uid, params, is_ws) => {
-                        let _ = handle_rpc(&mut self, &send, &pool_send, uid, params, is_ws).await;
+                        let _ = handle_rpc(&mut self, &send, &chain_send, uid, params, is_ws).await;
                     }
                     ReceiveMessage::NetworkLost => {
                         println!("No network connections");
@@ -196,7 +211,7 @@ impl<H: Handler> Engine<H> {
                         if sequencer == peer_addr {
                             println!("Engine: start new room: {}", rid);
                             // if mine, create room
-                            self.start_room(rid).await;
+                            self.start_room(rid, send.clone(), chain_send.clone()).await;
                             let _ = send
                                 .send(SendMessage::Network(NetworkType::AddGroup(rid)))
                                 .await;
@@ -204,6 +219,10 @@ impl<H: Handler> Engine<H> {
                             // if not mine, delete it.
                             self.del_pending(rid);
                         }
+                    }
+                    ChainMessage::OverRoom(gid, data, proof) => {
+                        let _ = pool_send.send(PoolMessage::OverRoom(gid, data, proof));
+                        self.over_room(gid).await;
                     }
                     ChainMessage::Reprove => {
                         // TODO logic

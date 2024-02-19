@@ -10,6 +10,7 @@ mod pool;
 mod room;
 mod rpc;
 mod scan;
+mod task;
 mod types;
 
 #[cfg(feature = "request")]
@@ -74,7 +75,7 @@ pub trait Param: Sized + Send + Default {
 
 /// Handle message received from players
 #[async_trait::async_trait]
-pub trait Handler: Send {
+pub trait Handler: Send + Sized + 'static {
     type Param: Param;
 
     /// when player online
@@ -88,7 +89,7 @@ pub trait Handler: Send {
     }
 
     /// create new room scan from chain
-    async fn create(peers: &[(PeerId, PublicKey)]) -> Self;
+    async fn create(peers: &[(PeerId, PublicKey)]) -> (Self, Vec<Box<dyn Task<H = Self>>>);
 
     /// handle message in a room
     async fn handle(
@@ -101,13 +102,39 @@ pub trait Handler: Send {
 
 /// Timer tasks when game room started
 #[async_trait::async_trait]
-pub trait Task: Send {
+pub trait Task: Send + Sync {
     type H: Handler;
 
     fn timer(&self) -> u64;
 
     async fn run(
         &mut self,
-        states: &mut Self::H,
+        state: &mut Self::H,
     ) -> Result<HandleResult<<Self::H as Handler>::Param>>;
+}
+
+/// Default vector json values for Param
+#[derive(Default, Debug, Clone)]
+pub struct DefaultParams(pub Vec<Value>);
+
+impl Param for DefaultParams {
+    fn to_value(self) -> Value {
+        Value::Array(self.0)
+    }
+
+    fn from_value(value: Value) -> Result<Self> {
+        match value {
+            Value::Array(p) => Ok(DefaultParams(p)),
+            o => Ok(DefaultParams(vec![o])),
+        }
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        serde_json::to_vec(&self.0).unwrap_or(vec![])
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let v: Value = serde_json::from_slice(bytes)?;
+        Self::from_value(v)
+    }
 }
