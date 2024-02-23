@@ -2,9 +2,6 @@
 members = [
   "engine",
   "node",
-  #"prover/poker/core",
-  #"prover/poker/host",
-  #"prover/poker/methods",
 ]
 resolver = "2"
 
