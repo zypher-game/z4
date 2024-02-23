@@ -20,7 +20,7 @@ contract RoomMarket is OwnableUpgradeable {
         mapping(address => bool) exists;
         address[] players;
         bytes32[] pubkeys;
-        address creator;
+        address game;
         uint256 reward;
         address sequencer;
         uint256 locked;
@@ -48,12 +48,14 @@ contract RoomMarket is OwnableUpgradeable {
     /// waiting & running rooms
     mapping(uint256 => Room) public rooms;
 
-    /// registered sequencers
-    mapping(address => Sequencer) public sequencers;
+    /// registered sequencers for game
+    mapping(address => mapping(address => Sequencer)) public sequencers;
 
-    event StakeSequencer(address sequencer, string http, uint256 staking);
+    event StakeSequencer(address sequencer, address game, string http, uint256 staking);
     event UnstakeSequencer(address sequencer, uint256 staking);
-    event StartRoom(uint256 room, uint256 reward, address[] players, bytes32[] pubkeys);
+    event CreateRoom(uint256 room, address game, uint256 reward, address player, bytes32 pubkey);
+    event JoinRoom(uint256 room, address player, bytes32 pubkey);
+    event StartRoom(uint256 room, address game);
     event AcceptRoom(uint256 room, address sequencer, uint256 locked);
     event OverRoom(uint256 room);
 
@@ -78,22 +80,22 @@ contract RoomMarket is OwnableUpgradeable {
         playerRoomLock = _playerRoomLock;
     }
 
-    function isSequencer(address sequencer) external view returns (bool) {
-        return sequencers[sequencer].staking >= minStaking;
+    function isSequencer(address sequencer, address game) external view returns (bool) {
+        return sequencers[sequencer][game].staking >= minStaking;
     }
 
-    function stakeSequencer(string calldata http, uint256 amount) external {
+    function stakeSequencer(address game, string calldata http, uint256 amount) external {
         IERC20(token).transferFrom(msg.sender, address(this), amount);
 
-        Sequencer storage sequencer = sequencers[msg.sender];
+        Sequencer storage sequencer = sequencers[msg.sender][game];
         sequencer.staking += amount;
         sequencer.http = http;
 
-        emit StakeSequencer(msg.sender, http, sequencer.staking);
+        emit StakeSequencer(msg.sender, game, http, sequencer.staking);
     }
 
-    function unstakeSequencer(uint256 amount) external {
-        Sequencer storage sequencer = sequencers[msg.sender];
+    function unstakeSequencer(address game, uint256 amount) external {
+        Sequencer storage sequencer = sequencers[msg.sender][game];
         require(sequencer.staking >= amount, "RM01");
 
         sequencer.staking -= amount;
@@ -109,10 +111,12 @@ contract RoomMarket is OwnableUpgradeable {
         room.exists[player] = true;
         room.players.push(player);
         room.pubkeys.push(pubkey);
-        room.creator = msg.sender;
+        room.game = msg.sender;
         room.reward = reward;
         room.site = limit - 1;
         room.status = RoomStatus.Opening;
+
+        emit CreateRoom(nextRoomId, room.game, room.reward, player, pubkey);
 
         return nextRoomId;
     }
@@ -127,9 +131,11 @@ contract RoomMarket is OwnableUpgradeable {
         room.pubkeys.push(pubkey);
         room.site -= 1;
 
+        emit JoinRoom(roomId, player, pubkey);
+
         if (room.site == 0) {
             room.status = RoomStatus.Waiting;
-            emit StartRoom(roomId, room.reward, room.players, room.pubkeys);
+            emit StartRoom(roomId, room.game);
         }
 
         return room.site;
@@ -137,17 +143,17 @@ contract RoomMarket is OwnableUpgradeable {
 
     function startRoom(uint256 roomId) external {
         Room storage room = rooms[roomId];
-        require(room.creator == msg.sender, "RM04");
+        require(room.game == msg.sender, "RM04");
         require(room.status == RoomStatus.Opening, "RM02");
 
         room.status = RoomStatus.Waiting;
-        emit StartRoom(roomId, room.reward, room.players, room.pubkeys);
+        emit StartRoom(roomId, room.game);
     }
 
 
     function acceptRoom(uint256 roomId) external {
-        Sequencer storage sequencer = sequencers[msg.sender];
         Room storage room = rooms[roomId];
+        Sequencer storage sequencer = sequencers[msg.sender][room.game];
 
         uint256 lockAmount = room.players.length * playerRoomLock;
         require(sequencer.staking > minStaking && sequencer.staking > lockAmount, "RM05");
@@ -187,7 +193,7 @@ contract RoomMarket is OwnableUpgradeable {
 
     function _overRoom(uint256 roomId) private {
         Room storage room = rooms[roomId];
-        Sequencer storage sequencer = sequencers[room.sequencer];
+        Sequencer storage sequencer = sequencers[room.sequencer][room.game];
 
         sequencer.staking += room.locked;
         sequencer.staking += room.reward;
@@ -200,9 +206,9 @@ contract RoomMarket is OwnableUpgradeable {
     function restartRoom(uint256 roomId) external {
         Room storage room = rooms[roomId];
         require(room.status == RoomStatus.Playing, "RM02");
-        require(room.creator == msg.sender, "RM04");
+        require(room.game == msg.sender, "RM04");
 
         room.status = RoomStatus.Waiting;
-        emit StartRoom(roomId, room.reward, room.players, room.pubkeys);
+        emit StartRoom(roomId, room.game);
     }
 }

@@ -1,10 +1,14 @@
+use ethers::prelude::Address;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tdn::{
     prelude::{
         start_with_config_and_key, NetworkType, PeerId, ReceiveMessage, SendMessage, SendType,
     },
-    types::rpc::rpc_response,
+    types::{
+        primitives::vec_remove_item,
+        rpc::{rpc_response, RpcError},
+    },
 };
 use tokio::{
     select,
@@ -26,6 +30,7 @@ use crate::{
 
 pub struct HandlerRoom<H: Handler> {
     pub handler: H,
+    pub game: Address,
     pub room: Room,
     tasks: Sender<TaskMessage>,
 }
@@ -37,7 +42,9 @@ pub struct Engine<H: Handler> {
     /// rooms which is running
     rooms: HashMap<RoomId, Arc<Mutex<HandlerRoom<H>>>>,
     /// rooms which is waiting create
-    pending: HashMap<RoomId, Vec<(PeerId, PublicKey)>>,
+    pub pending: HashMap<RoomId, (Address, Vec<(PeerId, PublicKey)>)>,
+    /// supported games and game's pending rooms
+    pub games: HashMap<Address, Vec<RoomId>>,
     /// connected peers
     onlines: Arc<Mutex<HashMap<PeerId, Vec<RoomId>>>>,
 }
@@ -45,8 +52,15 @@ pub struct Engine<H: Handler> {
 impl<H: Handler> Engine<H> {
     /// init a engine with config
     pub fn init(config: Config) -> Self {
+        let mut games = HashMap::new();
+        for game in config.games.iter() {
+            if let Ok(addr) = game.parse::<Address>() {
+                games.insert(addr, vec![]);
+            }
+        }
         Self {
             config,
+            games,
             rooms: HashMap::new(),
             pending: HashMap::new(),
             onlines: Arc::new(Mutex::new(HashMap::new())),
@@ -54,19 +68,32 @@ impl<H: Handler> Engine<H> {
     }
 
     /// create a pending room when scan from chain
-    pub fn add_pending(&mut self, id: RoomId, pids: Vec<PeerId>, pks: Vec<PublicKey>) {
-        if !self.pending.contains_key(&id) {
-            let mut peers = vec![];
-            for (pid, pk) in pids.iter().zip(pks) {
-                peers.push((*pid, pk));
+    pub fn create_pending(&mut self, id: RoomId, game: Address, pid: PeerId, pk: PublicKey) {
+        if let Some(games) = self.games.get_mut(&game) {
+            if !self.pending.contains_key(&id) {
+                self.pending.insert(id, (game, vec![(pid, pk)]));
+                games.push(id);
             }
-            self.pending.insert(id, peers);
+        }
+    }
+
+    /// join new player to the room
+    pub fn join_pending(&mut self, id: RoomId, pid: PeerId, pk: PublicKey) {
+        if let Some((_, peers)) = self.pending.get_mut(&id) {
+            peers.push((pid, pk));
         }
     }
 
     /// create a pending room when scan from chain
     pub fn del_pending(&mut self, id: RoomId) {
-        self.pending.remove(&id);
+        if let Some((game, _)) = self.pending.remove(&id) {
+            self.games.get_mut(&game).map(|v| vec_remove_item(v, &id));
+        }
+    }
+
+    /// check if contains pending room
+    pub fn contains_pending(&self, id: &RoomId) -> bool {
+        self.pending.contains_key(id)
     }
 
     /// create a room when scan from chain
@@ -76,13 +103,14 @@ impl<H: Handler> Engine<H> {
         send: Sender<SendMessage>,
         chain_send: UnboundedSender<ChainMessage>,
     ) {
-        if let Some(peers) = self.pending.remove(&id) {
+        if let Some((game, peers)) = self.pending.remove(&id) {
             let (handler, tasks) = H::create(&peers).await;
             let ids: Vec<PeerId> = peers.iter().map(|(id, _pk)| *id).collect();
             // running tasks
             let (tx, rx) = channel(1);
             let room = Arc::new(Mutex::new(HandlerRoom {
                 handler,
+                game,
                 tasks: tx,
                 room: Room::new(id, &ids),
             }));
@@ -96,7 +124,7 @@ impl<H: Handler> Engine<H> {
         if let Some(room) = self.rooms.remove(&id) {
             let _ = room.lock().await.tasks.send(TaskMessage::Close).await;
         }
-        self.pending.remove(&id);
+        self.del_pending(id);
 
         // TODO clear onlines
     }
@@ -164,6 +192,10 @@ impl<H: Handler> Engine<H> {
 
         let (peer_addr, send, mut out_recv) = start_with_config_and_key(tdn_config, key).await?;
         println!("SERVER: peer id: {:?}", peer_addr);
+        println!("HTTP  : http://0.0.0.0:{}", self.config.http_port);
+        if let Some(p) = self.config.ws_port {
+            println!("WS    : ws://0.0.0.0:{}", p);
+        }
 
         let (chain_send, mut chain_recv) = chain_channel();
         let (pool_send, pool_recv) = pool_channel();
@@ -173,6 +205,9 @@ impl<H: Handler> Engine<H> {
             tokio::spawn(scan_listen(scan_providers, chain_net, send1));
             tokio::spawn(pool_listen(pool_provider, chain_net, send2, pool_recv));
         }
+
+        // DEBUG need delete
+        // self.start_room(1, send.clone(), chain_send.clone()).await;
 
         loop {
             let work = select! {
@@ -193,7 +228,12 @@ impl<H: Handler> Engine<H> {
                         let _ = handle_p2p(&mut self, &send, &chain_send, gid, msg).await;
                     }
                     ReceiveMessage::Rpc(uid, params, is_ws) => {
-                        let _ = handle_rpc(&mut self, &send, &chain_send, uid, params, is_ws).await;
+                        if let Err(err) =
+                            handle_rpc(&mut self, &send, &chain_send, uid, params, is_ws).await
+                        {
+                            let msg = RpcError::Custom(format!("{:?}", err)).json(0);
+                            let _ = send.send(SendMessage::Rpc(uid, msg, is_ws)).await;
+                        }
                     }
                     ReceiveMessage::NetworkLost => {
                         println!("No network connections");
@@ -201,11 +241,22 @@ impl<H: Handler> Engine<H> {
                     ReceiveMessage::Own(..) => {}
                 },
                 Some(FutureMessage::Chain(message)) => match message {
-                    ChainMessage::StartRoom(rid, players, pubkeys) => {
-                        println!("Engine: accept new room: {}", rid);
-                        // send accept operation to chain
+                    ChainMessage::CreateRoom(rid, game, player, pubkey) => {
                         let _ = pool_send.send(PoolMessage::AcceptRoom(rid));
-                        self.add_pending(rid, players, pubkeys);
+                        self.create_pending(rid, game, player, pubkey);
+                    }
+                    ChainMessage::JoinRoom(rid, player, pubkey) => {
+                        let _ = pool_send.send(PoolMessage::AcceptRoom(rid));
+                        self.join_pending(rid, player, pubkey);
+                    }
+                    ChainMessage::StartRoom(rid, game) => {
+                        // send accept operation to chain
+                        // check room is exist
+                        if self.contains_pending(&rid) {
+                            let _ = pool_send.send(PoolMessage::AcceptRoom(rid));
+                        } else if self.games.contains_key(&game) {
+                            // TODO fetch room from chain.
+                        }
                     }
                     ChainMessage::AcceptRoom(rid, sequencer) => {
                         if sequencer == peer_addr {

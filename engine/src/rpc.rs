@@ -1,5 +1,9 @@
-use serde_json::Value;
-use tdn::prelude::{PeerId, SendMessage};
+use ethers::prelude::Address;
+use serde_json::{json, Value};
+use tdn::{
+    prelude::{PeerId, SendMessage},
+    types::rpc::rpc_response,
+};
 use tokio::sync::mpsc::{Sender, UnboundedSender};
 
 use crate::{
@@ -18,14 +22,47 @@ pub async fn handle_rpc<H: Handler>(
     mut params: Value,
     is_ws: bool,
 ) -> Result<()> {
+    let method = params["method"].as_str().unwrap_or("").to_owned();
+    let peer_id = PeerId::from_hex(params["peer"].as_str().unwrap_or(""))?;
+    let params = params["params"].take();
+
+    // inner rpc method for query all pending room for a game
+    if &method == "room_market" {
+        let p = params.as_array().ok_or(Error::Params)?;
+
+        if p.is_empty() {
+            return Err(Error::NoRoom);
+        }
+        let game: Address = p[0]
+            .as_str()
+            .ok_or(Error::Params)?
+            .parse()
+            .map_err(|_| Error::Params)?;
+        let mut pendings = vec![];
+        if let Some(rooms) = engine.games.get(&game) {
+            for room in rooms {
+                if let Some((_, ps)) = engine.pending.get(room) {
+                    let players: Vec<String> = ps.iter().map(|(p, _)| p.to_hex()).collect();
+                    pendings.push(json!({
+                        "room": room,
+                        "players": players
+                    }));
+                }
+            }
+        } else {
+            return Err(Error::NoGame);
+        }
+
+        let rpc_msg = rpc_response(0, &method, json!(pendings), 0);
+        let _ = send.send(SendMessage::Rpc(uid, rpc_msg, is_ws)).await;
+
+        return Ok(());
+    }
+
     let gid = params["gid"].as_u64().unwrap_or(0);
     if !engine.has_room(&gid) {
         return Err(Error::NoRoom);
     }
-
-    let method = params["method"].as_str().unwrap_or("").to_owned();
-    let peer_id = PeerId::from_hex(params["peer"].as_str().unwrap_or("")).unwrap();
-    let params = params["params"].take();
 
     if &method == "connect" && is_ws {
         if engine.online(gid, peer_id, ConnectType::Rpc(uid)).await {
@@ -40,6 +77,7 @@ pub async fn handle_rpc<H: Handler>(
                 // TODO close the connections
             }
         }
+        return Ok(());
     }
 
     if engine.is_room_peer(&gid, &peer_id).await {

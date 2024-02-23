@@ -61,12 +61,74 @@
     "inputs": [
       {
         "indexed": false,
+        "internalType": "uint256",
+        "name": "room",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "game",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "reward",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "pubkey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "CreateRoom",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
         "internalType": "uint64",
         "name": "version",
         "type": "uint64"
       }
     ],
     "name": "Initialized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "room",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "pubkey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "JoinRoom",
     "type": "event"
   },
   {
@@ -112,6 +174,12 @@
       },
       {
         "indexed": false,
+        "internalType": "address",
+        "name": "game",
+        "type": "address"
+      },
+      {
+        "indexed": false,
         "internalType": "string",
         "name": "http",
         "type": "string"
@@ -137,21 +205,9 @@
       },
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "reward",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "address[]",
-        "name": "players",
-        "type": "address[]"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes32[]",
-        "name": "pubkeys",
-        "type": "bytes32[]"
+        "internalType": "address",
+        "name": "game",
+        "type": "address"
       }
     ],
     "name": "StartRoom",
@@ -251,6 +307,11 @@
       {
         "internalType": "address",
         "name": "sequencer",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "game",
         "type": "address"
       }
     ],
@@ -424,7 +485,7 @@
     "outputs": [
       {
         "internalType": "address",
-        "name": "creator",
+        "name": "game",
         "type": "address"
       },
       {
@@ -458,6 +519,11 @@
   },
   {
     "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      },
       {
         "internalType": "address",
         "name": "",
@@ -522,6 +588,11 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "game",
+        "type": "address"
+      },
+      {
         "internalType": "string",
         "name": "http",
         "type": "string"
@@ -578,6 +649,11 @@
   },
   {
     "inputs": [
+      {
+        "internalType": "address",
+        "name": "game",
+        "type": "address"
+      },
       {
         "internalType": "uint256",
         "name": "amount",

@@ -1,3 +1,4 @@
+use ethers::prelude::Address;
 use serde::{Deserialize, Serialize};
 use zplonk::errors::ZplonkError;
 
@@ -13,6 +14,8 @@ pub enum Error {
     NoPlayer,
     /// Not has the room
     NoRoom,
+    /// Not support this game
+    NoGame,
     /// serialize error
     Serialize,
     /// invalid secret key
@@ -34,7 +37,9 @@ pub struct P2pMessage<'a> {
 }
 
 pub enum ChainMessage {
-    StartRoom(RoomId, Vec<PeerId>, Vec<PublicKey>),
+    CreateRoom(RoomId, Address, PeerId, PublicKey),
+    JoinRoom(RoomId, PeerId, PublicKey),
+    StartRoom(RoomId, Address),
     AcceptRoom(RoomId, PeerId),
     OverRoom(RoomId, Vec<u8>, Vec<u8>),
     Reprove,
@@ -44,6 +49,12 @@ pub enum PoolMessage {
     AcceptRoom(RoomId),
     OverRoom(RoomId, Vec<u8>, Vec<u8>),
     Submitted(RoomId),
+}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Error {
+        Error::Anyhow(err.to_string())
+    }
 }
 
 impl From<Box<bincode::ErrorKind>> for Error {

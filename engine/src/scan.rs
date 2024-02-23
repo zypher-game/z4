@@ -15,11 +15,25 @@ const TIMEOUT: u64 = 10;
 const DELAY: u64 = 3;
 
 #[derive(Clone, Debug, EthEvent)]
+struct CreateRoom {
+    room: U256,
+    game: Address,
+    reward: U256,
+    player: Address,
+    pubkey: H256,
+}
+
+#[derive(Clone, Debug, EthEvent)]
+struct JoinRoom {
+    room: U256,
+    player: Address,
+    pubkey: H256,
+}
+
+#[derive(Clone, Debug, EthEvent)]
 struct StartRoom {
     room: U256,
-    reward: U256,
-    players: Vec<Address>,
-    pubkeys: Vec<H256>,
+    game: Address,
 }
 
 #[derive(Clone, Debug, EthEvent)]
@@ -115,6 +129,13 @@ pub async fn running(
             (start + 1, end)
         };
 
+        let create_room = markets[i]
+            .event::<CreateRoom>()
+            .from_block(from)
+            .to_block(to);
+
+        let join_room = markets[i].event::<JoinRoom>().from_block(from).to_block(to);
+
         let start_room = markets[i]
             .event::<StartRoom>()
             .from_block(from)
@@ -124,6 +145,22 @@ pub async fn running(
             .event::<AcceptRoom>()
             .from_block(from)
             .to_block(to);
+
+        let creates_room =
+            if let Ok(res) = timeout(Duration::from_secs(TIMEOUT), create_room.query()).await {
+                res
+            } else {
+                warn!("Timeout: {}", i);
+                continue;
+            };
+
+        let joins_room =
+            if let Ok(res) = timeout(Duration::from_secs(TIMEOUT), join_room.query()).await {
+                res
+            } else {
+                warn!("Timeout: {}", i);
+                continue;
+            };
 
         let starts_room =
             if let Ok(res) = timeout(Duration::from_secs(TIMEOUT), start_room.query()).await {
@@ -141,31 +178,55 @@ pub async fn running(
                 continue;
             };
 
-        if let Ok(starts) = starts_room {
-            for start in starts {
-                let StartRoom {
+        if let Ok(creates) = creates_room {
+            for create in creates {
+                let CreateRoom {
                     room,
+                    game,
                     reward,
-                    players,
-                    pubkeys,
-                } = start;
-                info!(
-                    "scan start: {} {} {} {}",
-                    room,
-                    reward,
-                    players.len(),
-                    pubkeys.len()
-                );
-                match (parse_room(room), parse_peers(players), parse_pks(pubkeys)) {
-                    (Some(rid), pids, pks) => {
-                        if pids.len() == pks.len() {
-                            sender.send(ChainMessage::StartRoom(rid, pids, pks))?;
-                        }
+                    player,
+                    pubkey,
+                } = create;
+                info!("scan create: {} {} {} {}", room, game, reward, player);
+
+                match (parse_room(room), parse_peer(player), parse_pk(pubkey)) {
+                    (Some(rid), Some(pid), Some(pk)) => {
+                        sender.send(ChainMessage::CreateRoom(rid, game, pid, pk))?;
                     }
                     _ => continue,
                 }
+            }
+        }
 
-                //
+        if let Ok(joins) = joins_room {
+            for join in joins {
+                let JoinRoom {
+                    room,
+                    player,
+                    pubkey,
+                } = join;
+                info!("scan join: {} {}", room, player);
+
+                match (parse_room(room), parse_peer(player), parse_pk(pubkey)) {
+                    (Some(rid), Some(pid), Some(pk)) => {
+                        sender.send(ChainMessage::JoinRoom(rid, pid, pk))?;
+                    }
+                    _ => continue,
+                }
+            }
+        }
+
+        if let Ok(starts) = starts_room {
+            for start in starts {
+                let StartRoom { room, game } = start;
+                info!("scan start: {} {} ", room, game);
+
+                match parse_room(room) {
+                    Some(rid) => {
+                        sender.send(ChainMessage::StartRoom(rid, game))?;
+                    }
+                    _ => continue,
+                }
             }
         }
 
@@ -208,7 +269,7 @@ fn parse_peer(cpid: Address) -> Option<PeerId> {
 }
 
 #[inline]
-fn parse_peers(cpids: Vec<Address>) -> Vec<PeerId> {
+fn _parse_peers(cpids: Vec<Address>) -> Vec<PeerId> {
     let mut res = vec![];
     for cpid in cpids {
         if let Some(p) = parse_peer(cpid) {
@@ -224,7 +285,7 @@ fn parse_pk(cpk: H256) -> Option<PublicKey> {
 }
 
 #[inline]
-fn parse_pks(cpks: Vec<H256>) -> Vec<PublicKey> {
+fn _parse_pks(cpks: Vec<H256>) -> Vec<PublicKey> {
     let mut res = vec![];
     for cpk in cpks {
         if let Some(p) = parse_pk(cpk) {

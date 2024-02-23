@@ -20,11 +20,10 @@ serde_json = "1.0"
 tdn = { version = "0.10", default-features = false, features = ["multiple"] }
 tokio = "1.35"
 tracing = "0.1"
+zplonk = "0.1"
 
 futures-util = { version = "0.3", default-features = false, features = ["sink"], optional = true }
 tokio-tungstenite = { version = "0.21", optional = true }
-
-zplonk = { path = "../../uzkge/plonk"}
 
 [dev-dependencies]
 rand_chacha = "0.3"

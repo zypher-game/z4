@@ -9,6 +9,8 @@ use crate::contracts::{Network, NetworkConfig};
 pub struct Config {
     /// default groups
     pub groups: Vec<u64>,
+    /// supported games
+    pub games: Vec<String>,
     /// the server secret key (SECP256K1)
     pub secret_key: String,
     /// the server websocket port
