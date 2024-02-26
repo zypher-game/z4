@@ -2,6 +2,7 @@
 members = [
   "engine",
   "node",
+  "types",
 ]
 resolver = "2"
 

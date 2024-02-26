@@ -54,8 +54,9 @@ pub async fn listen(
     clients: Vec<Arc<Provider<Http>>>,
     network: Network,
     sender: UnboundedSender<ChainMessage>,
+    start: Option<u64>,
 ) -> Result<()> {
-    let market_address = network.address("RoomMarket").unwrap();
+    let market_address = H160(network.address("RoomMarket").unwrap());
     let markets: Vec<_> = clients
         .iter()
         .map(|client| RoomMarket::new(market_address, client.clone()))
@@ -63,9 +64,17 @@ pub async fn listen(
 
     let mut next_index = 0;
     loop {
-        if let Ok(start_block) = clients[next_index].get_block_number().await {
-            let start_block = start_block.as_u64() - DELAY;
+        let start_block = if start.is_some() {
+            start
+        } else {
+            if let Ok(start_block) = clients[next_index].get_block_number().await {
+                Some(start_block.as_u64() - DELAY)
+            } else {
+                None
+            }
+        };
 
+        if let Some(start_block) = start_block {
             let _ = running(
                 start_block,
                 clients.clone(),
@@ -73,7 +82,7 @@ pub async fn listen(
                 sender.clone(),
             )
             .await;
-        };
+        }
 
         // waiting 2s
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
@@ -121,7 +130,7 @@ pub async fn running(
         if end > start && end - start > 200 {
             end = start + 200;
         }
-        debug!("Scan {} from {} to {}", i, start, end);
+        info!("Scan {} from {} to {}", i, start, end);
 
         let (from, to) = if start > end {
             (end, start)
@@ -281,7 +290,8 @@ fn _parse_peers(cpids: Vec<Address>) -> Vec<PeerId> {
 
 #[inline]
 fn parse_pk(cpk: H256) -> Option<PublicKey> {
-    PublicKey::deserialize_with_mode(cpk.as_bytes(), Compress::Yes, Validate::Yes).ok()
+    //PublicKey::deserialize_with_mode(cpk.as_bytes(), Compress::Yes, Validate::Yes).ok()
+    Some(PublicKey::default())
 }
 
 #[inline]

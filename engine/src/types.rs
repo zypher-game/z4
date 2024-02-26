@@ -30,6 +30,8 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 pub type RoomId = u64;
 
+pub const INIT_ROOM_MARKET_GROUP: RoomId = 100000;
+
 #[derive(Serialize, Deserialize)]
 pub struct P2pMessage<'a> {
     pub method: &'a str,

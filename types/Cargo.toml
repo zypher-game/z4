@@ -1,0 +1,9 @@
+[package]
+name = "z4-types"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+hex = "0.4"
+serde_json = "1.0"

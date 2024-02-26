@@ -27,15 +27,29 @@ async function deployContract(name, params=[]) {
   return address;
 }
 
+async function deployContractWithInitialize(name, params=[]) {
+  const Factory = await ethers.getContractFactory(name);
+  const contract = await Factory.deploy();
+  const address = await contract.getAddress();
+  console.log(`${name} address: ${address}`);
+
+  await contract.initialize(...params);
+  return address;
+}
+
 async function deploy() {
   // DEMO for test
   const token = await deployContract("Token", [1000000]);
 
-  const roomMarket = await deployContract("RoomMarket", [token, 10000, 100]);
+  const roomMarket = await deployContractWithInitialize("RoomMarket", [token, 10000, 100]);
+
+
+  const demo = await deployContractWithInitialize("Demo", [roomMarket]);
 
   const addresses = {
     Token: token,
-    RoomMarket: roomMarket
+    RoomMarket: roomMarket,
+    Demo: demo,
   };
   const filename = `../../public/${network.name}.json`;
   writeFile(

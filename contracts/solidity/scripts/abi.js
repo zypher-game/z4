@@ -4,7 +4,8 @@ const main = async () => {
   try {
     const contracts = [
       'Token',
-      'RoomMarket'
+      'RoomMarket',
+      'Demo'
     ];
 
     contracts.forEach(function (name) {

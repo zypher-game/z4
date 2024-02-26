@@ -123,6 +123,7 @@ contract RoomMarket is OwnableUpgradeable {
 
     function joinRoom(uint256 roomId, address player, bytes32 pubkey) external returns (uint256) {
         Room storage room = rooms[roomId];
+        require(room.game == msg.sender, "RM04");
         require(room.status == RoomStatus.Opening, "RM02");
         require(room.site > 0 && !room.exists[player], "RM03");
 
@@ -150,13 +151,12 @@ contract RoomMarket is OwnableUpgradeable {
         emit StartRoom(roomId, room.game);
     }
 
-
     function acceptRoom(uint256 roomId) external {
         Room storage room = rooms[roomId];
         Sequencer storage sequencer = sequencers[msg.sender][room.game];
 
         uint256 lockAmount = room.players.length * playerRoomLock;
-        require(sequencer.staking > minStaking && sequencer.staking > lockAmount, "RM05");
+        require(sequencer.staking >= minStaking && sequencer.staking >= lockAmount, "RM05");
         require(room.status == RoomStatus.Waiting, "RM02");
 
         room.sequencer = msg.sender;
@@ -210,5 +210,10 @@ contract RoomMarket is OwnableUpgradeable {
 
         room.status = RoomStatus.Waiting;
         emit StartRoom(roomId, room.game);
+    }
+
+    function roomInfo(uint256 roomId) external view returns (address[] memory, address, address, uint256, RoomStatus) {
+        Room storage room = rooms[roomId];
+        return (room.players, room.game, room.sequencer, room.site, room.status);
     }
 }

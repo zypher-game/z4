@@ -14,13 +14,12 @@ pub fn pool_channel() -> (UnboundedSender<PoolMessage>, UnboundedReceiver<PoolMe
 }
 
 pub async fn listen(
-    client: SignerMiddleware<Arc<Provider<Http>>, LocalWallet>,
+    client: Arc<SignerMiddleware<Arc<Provider<Http>>, LocalWallet>>,
     network: Network,
     sender: UnboundedSender<ChainMessage>,
     mut receiver: UnboundedReceiver<PoolMessage>,
 ) -> Result<()> {
-    let client = Arc::new(client);
-    let market = RoomMarket::new(network.address("RoomMarket").unwrap(), client.clone());
+    let market = RoomMarket::new(H160(network.address("RoomMarket").unwrap()), client.clone());
     let mut games: HashMap<RoomId, (Vec<u8>, Vec<u8>)> = HashMap::new();
 
     while let Some(msg) = receiver.recv().await {

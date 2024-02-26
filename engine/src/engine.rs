@@ -199,10 +199,10 @@ impl<H: Handler> Engine<H> {
 
         let (chain_send, mut chain_recv) = chain_channel();
         let (pool_send, pool_recv) = pool_channel();
-        if let Some((scan_providers, pool_provider, chain_net)) = chain_option {
+        if let Some((scan_providers, pool_provider, chain_net, start_block)) = chain_option {
             let send1 = chain_send.clone();
             let send2 = chain_send.clone();
-            tokio::spawn(scan_listen(scan_providers, chain_net, send1));
+            tokio::spawn(scan_listen(scan_providers, chain_net, send1, start_block));
             tokio::spawn(pool_listen(pool_provider, chain_net, send2, pool_recv));
         }
 
@@ -242,11 +242,10 @@ impl<H: Handler> Engine<H> {
                 },
                 Some(FutureMessage::Chain(message)) => match message {
                     ChainMessage::CreateRoom(rid, game, player, pubkey) => {
-                        let _ = pool_send.send(PoolMessage::AcceptRoom(rid));
+                        println!("NEW ROOM created !!!");
                         self.create_pending(rid, game, player, pubkey);
                     }
                     ChainMessage::JoinRoom(rid, player, pubkey) => {
-                        let _ = pool_send.send(PoolMessage::AcceptRoom(rid));
                         self.join_pending(rid, player, pubkey);
                     }
                     ChainMessage::StartRoom(rid, game) => {

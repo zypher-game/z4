@@ -1,8 +1,11 @@
-use ethers::prelude::{Http, LocalWallet, Provider, SignerMiddleware};
+use ethers::prelude::{Address, Http, LocalWallet, Provider, Signer, SignerMiddleware, H160};
 use std::{path::PathBuf, sync::Arc};
 use tdn::prelude::{Config as TdnConfig, PeerKey};
 
-use crate::contracts::{Network, NetworkConfig};
+use crate::{
+    contracts::{Network, NetworkConfig, RoomMarket, Token},
+    types::INIT_ROOM_MARKET_GROUP,
+};
 
 /// config of engine
 #[derive(Default)]
@@ -21,6 +24,12 @@ pub struct Config {
     pub chain_network: String,
     /// the chain rpcs
     pub chain_rpcs: Vec<String>,
+    /// scan start block
+    pub chain_start_block: Option<u64>,
+    /// auto stake to sequencer
+    pub auto_stake: bool,
+    /// http for this service
+    pub http: String,
 }
 
 impl Config {
@@ -32,6 +41,8 @@ impl Config {
         };
         config.rpc_http = Some(format!("0.0.0.0:{}", self.http_port).parse().unwrap());
         config.group_ids = self.groups.clone();
+        config.group_ids.push(INIT_ROOM_MARKET_GROUP);
+
         // TODO boostrap seed
 
         let sk_str = self.secret_key.trim_start_matches("0x");
@@ -47,8 +58,9 @@ impl Config {
         &self,
     ) -> Option<(
         Vec<Arc<Provider<Http>>>,
-        SignerMiddleware<Arc<Provider<Http>>, LocalWallet>,
+        Arc<SignerMiddleware<Arc<Provider<Http>>, LocalWallet>>,
         Network,
+        Option<u64>,
     )> {
         if self.chain_network.is_empty() {
             return None;
@@ -69,12 +81,48 @@ impl Config {
             panic!("NO RPCS");
         }
 
-        let signer = LocalWallet::from_bytes(&hex::decode(&self.secret_key).unwrap()).unwrap();
-        let signer_provider =
+        let sk_str = self.secret_key.trim_start_matches("0x");
+        let signer = LocalWallet::from_bytes(&hex::decode(&sk_str).unwrap()).unwrap();
+        let signer_addr = signer.address();
+        let signer_provider = Arc::new(
             SignerMiddleware::new_with_provider_chain(providers[0].clone(), signer)
                 .await
-                .unwrap();
+                .unwrap(),
+        );
 
-        Some((providers, signer_provider, network))
+        if self.auto_stake && !self.http.is_empty() {
+            // check & register sequencer
+            let market_address = H160(network.address("RoomMarket").unwrap());
+            let token_address = H160(network.address("Token").unwrap());
+            let contract = RoomMarket::new(market_address, signer_provider.clone());
+            let token = Token::new(token_address, signer_provider.clone());
+            let amount = contract.min_staking().await.unwrap();
+            for game in &self.games {
+                let addr = game.parse::<Address>().unwrap();
+                if !contract.is_sequencer(signer_addr, addr).await.unwrap() {
+                    match token.approve(market_address, amount).send().await {
+                        Ok(pending) => {
+                            if let Ok(_receipt) = pending.await {
+                                let _ = contract
+                                    .stake_sequencer(addr, self.http.clone(), amount)
+                                    .send()
+                                    .await;
+                            } else {
+                                error!("Failed to approve token");
+                            }
+                        }
+                        Err(err) => {
+                            if let Some(rcode) = err.decode_revert::<String>() {
+                                error!("{}", rcode);
+                            } else {
+                                error!("{}", err);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Some((providers, signer_provider, network, self.chain_start_block))
     }
 }

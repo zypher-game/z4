@@ -21,6 +21,7 @@ tdn = { version = "0.10", default-features = false, features = ["multiple"] }
 tokio = "1.35"
 tracing = "0.1"
 zplonk = "0.1"
+z4-types = { version = "0.1", path = "../types" }
 
 futures-util = { version = "0.3", default-features = false, features = ["sink"], optional = true }
 tokio-tungstenite = { version = "0.21", optional = true }

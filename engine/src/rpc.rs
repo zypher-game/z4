@@ -9,7 +9,7 @@ use tokio::sync::mpsc::{Sender, UnboundedSender};
 use crate::{
     engine::{handle_result, Engine},
     room::ConnectType,
-    types::{ChainMessage, Error, Result},
+    types::{ChainMessage, Error, Result, INIT_ROOM_MARKET_GROUP},
     Handler, Param,
 };
 
@@ -22,12 +22,14 @@ pub async fn handle_rpc<H: Handler>(
     mut params: Value,
     is_ws: bool,
 ) -> Result<()> {
+    let id = params["id"].as_u64().unwrap_or(0);
+    let gid = params["gid"].as_u64().unwrap_or(0);
     let method = params["method"].as_str().unwrap_or("").to_owned();
     let peer_id = PeerId::from_hex(params["peer"].as_str().unwrap_or(""))?;
     let params = params["params"].take();
 
     // inner rpc method for query all pending room for a game
-    if &method == "room_market" {
+    if &method == "room_market" && gid == INIT_ROOM_MARKET_GROUP {
         let p = params.as_array().ok_or(Error::Params)?;
 
         if p.is_empty() {
@@ -53,13 +55,12 @@ pub async fn handle_rpc<H: Handler>(
             return Err(Error::NoGame);
         }
 
-        let rpc_msg = rpc_response(0, &method, json!(pendings), 0);
+        let rpc_msg = rpc_response(id, &method, json!(pendings), gid);
         let _ = send.send(SendMessage::Rpc(uid, rpc_msg, is_ws)).await;
 
         return Ok(());
     }
 
-    let gid = params["gid"].as_u64().unwrap_or(0);
     if !engine.has_room(&gid) {
         return Err(Error::NoRoom);
     }
