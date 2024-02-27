@@ -5,14 +5,16 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 enum RoomStatus {
-    // the room is over or not exist
-    Over,
+    // the room not exist
+    None,
     // room is opening for all players
     Opening,
     // waiting sequencer accept the offer
     Waiting,
     // room is playing
-    Playing
+    Playing,
+    // the room is over
+    Over
 }
 
 contract RoomMarket is OwnableUpgradeable {
@@ -58,6 +60,7 @@ contract RoomMarket is OwnableUpgradeable {
     event StartRoom(uint256 room, address game);
     event AcceptRoom(uint256 room, address sequencer, uint256 locked);
     event OverRoom(uint256 room);
+    event ClaimRoom(uint256 room);
 
     function initialize(address _token, uint256 _minStaking, uint256 _playerRoomLock) external initializer {
         token = _token;
@@ -172,8 +175,8 @@ contract RoomMarket is OwnableUpgradeable {
         Room storage room = rooms[roomId];
         require(room.status == RoomStatus.Playing, "RM02");
         require(room.sequencer == msg.sender, "RM06");
-        require(proof.length > 0 && data.length > 0, "RM07");
 
+        // TODO require(proof.length > 0 && data.length > 0, "RM07");
         // TODO callback & verify zkp
 
         _overRoom(roomId);
@@ -198,8 +201,17 @@ contract RoomMarket is OwnableUpgradeable {
         sequencer.staking += room.locked;
         sequencer.staking += room.reward;
 
-        delete rooms[roomId];
+        room.status = RoomStatus.Over;
         emit OverRoom(roomId);
+    }
+
+    function claimRoom(uint256 roomId) external {
+        Room storage room = rooms[roomId];
+        require(room.status == RoomStatus.Over, "RM02");
+        require(room.game == msg.sender, "RM04");
+
+        delete rooms[roomId];
+        emit ClaimRoom(roomId);
     }
 
     // TODO conflict: if room is not playing at sequencer, creator can restart it.
