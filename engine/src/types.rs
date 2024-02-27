@@ -1,8 +1,7 @@
-use ethers::prelude::Address;
 use serde::{Deserialize, Serialize};
 use zplonk::errors::ZplonkError;
 
-use crate::{PeerId, PublicKey};
+use crate::PeerId;
 
 #[derive(Debug)]
 pub enum Error {
@@ -26,11 +25,19 @@ pub enum Error {
     Zk(ZplonkError),
 }
 
+pub use ethers::prelude::Address;
+
 pub type Result<T> = core::result::Result<T, Error>;
 
 pub type RoomId = u64;
 
+pub type GameId = Address;
+
 pub const INIT_ROOM_MARKET_GROUP: RoomId = 100000;
+
+pub fn address_hex(a: &Address) -> String {
+    PeerId(a.to_fixed_bytes()).to_hex()
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct P2pMessage<'a> {
@@ -39,8 +46,8 @@ pub struct P2pMessage<'a> {
 }
 
 pub enum ChainMessage {
-    CreateRoom(RoomId, Address, PeerId, PublicKey),
-    JoinRoom(RoomId, PeerId, PublicKey),
+    CreateRoom(RoomId, GameId, Address, PeerId),
+    JoinRoom(RoomId, Address, PeerId),
     StartRoom(RoomId, Address),
     AcceptRoom(RoomId, PeerId),
     OverRoom(RoomId, Vec<u8>, Vec<u8>),

@@ -105,7 +105,7 @@ pub trait Handler: Send + Sized + 'static {
     }
 
     /// create new room scan from chain
-    async fn create(peers: &[(PeerId, PublicKey)]) -> (Self, Tasks<Self>);
+    async fn create(peers: &[(Address, PeerId)]) -> (Self, Tasks<Self>);
 
     /// handle message in a room
     async fn handle(

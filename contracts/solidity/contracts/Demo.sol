@@ -32,14 +32,14 @@ contract Demo is OwnableUpgradeable {
         playerLimit = _playerLimit;
     }
 
-    function createRoom(bytes32 pubkey) external {
+    function createRoom(address peer) external {
         // TODO reward
-        uint256 roomId = RoomMarket(roomMarket).createRoom(0, playerLimit, msg.sender, pubkey);
+        uint256 roomId = RoomMarket(roomMarket).createRoom(0, playerLimit, msg.sender, peer);
         rooms[roomId].players.push(msg.sender);
     }
 
-    function joinRoom(uint256 roomId, bytes32 pubkey) external {
-        RoomMarket(roomMarket).joinRoom(roomId, msg.sender, pubkey);
+    function joinRoom(uint256 roomId, address peer) external {
+        RoomMarket(roomMarket).joinRoom(roomId, msg.sender, peer);
         rooms[roomId].players.push(msg.sender);
     }
 

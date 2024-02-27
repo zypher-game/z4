@@ -79,9 +79,9 @@
   {
     "inputs": [
       {
-        "internalType": "bytes32",
-        "name": "pubkey",
-        "type": "bytes32"
+        "internalType": "address",
+        "name": "peer",
+        "type": "address"
       }
     ],
     "name": "createRoom",
@@ -110,9 +110,9 @@
         "type": "uint256"
       },
       {
-        "internalType": "bytes32",
-        "name": "pubkey",
-        "type": "bytes32"
+        "internalType": "address",
+        "name": "peer",
+        "type": "address"
       }
     ],
     "name": "joinRoom",

@@ -85,9 +85,9 @@
       },
       {
         "indexed": false,
-        "internalType": "bytes32",
-        "name": "pubkey",
-        "type": "bytes32"
+        "internalType": "address",
+        "name": "peer",
+        "type": "address"
       }
     ],
     "name": "CreateRoom",
@@ -123,9 +123,9 @@
       },
       {
         "indexed": false,
-        "internalType": "bytes32",
-        "name": "pubkey",
-        "type": "bytes32"
+        "internalType": "address",
+        "name": "peer",
+        "type": "address"
       }
     ],
     "name": "JoinRoom",
@@ -263,9 +263,9 @@
         "type": "address"
       },
       {
-        "internalType": "bytes32",
-        "name": "pubkey",
-        "type": "bytes32"
+        "internalType": "address",
+        "name": "peer",
+        "type": "address"
       }
     ],
     "name": "createRoom",
@@ -339,9 +339,9 @@
         "type": "address"
       },
       {
-        "internalType": "bytes32",
-        "name": "pubkey",
-        "type": "bytes32"
+        "internalType": "address",
+        "name": "peer",
+        "type": "address"
       }
     ],
     "name": "joinRoom",

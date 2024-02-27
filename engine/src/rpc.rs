@@ -9,7 +9,7 @@ use tokio::sync::mpsc::{Sender, UnboundedSender};
 use crate::{
     engine::{handle_result, Engine},
     room::ConnectType,
-    types::{ChainMessage, Error, Result, INIT_ROOM_MARKET_GROUP},
+    types::{address_hex, ChainMessage, Error, Result, INIT_ROOM_MARKET_GROUP},
     Handler, Param,
 };
 
@@ -44,7 +44,7 @@ pub async fn handle_rpc<H: Handler>(
         if let Some(rooms) = engine.games.get(&game) {
             for room in rooms {
                 if let Some((_, ps)) = engine.pending.get(room) {
-                    let players: Vec<String> = ps.iter().map(|(p, _)| p.to_hex()).collect();
+                    let players: Vec<String> = ps.iter().map(|(p, _)| address_hex(p)).collect();
                     pendings.push(json!({
                         "room": room,
                         "players": players

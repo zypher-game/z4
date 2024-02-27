@@ -25,12 +25,12 @@ use crate::{
     scan::{chain_channel, listen as scan_listen},
     task::{handle_tasks, TaskMessage},
     types::*,
-    HandleResult, Handler, Param, PublicKey,
+    HandleResult, Handler, Param,
 };
 
 pub struct HandlerRoom<H: Handler> {
     pub handler: H,
-    pub game: Address,
+    pub game: GameId,
     pub room: Room,
     tasks: Sender<TaskMessage>,
 }
@@ -42,9 +42,9 @@ pub struct Engine<H: Handler> {
     /// rooms which is running
     rooms: HashMap<RoomId, Arc<Mutex<HandlerRoom<H>>>>,
     /// rooms which is waiting create
-    pub pending: HashMap<RoomId, (Address, Vec<(PeerId, PublicKey)>)>,
+    pub pending: HashMap<RoomId, (GameId, Vec<(Address, PeerId)>)>,
     /// supported games and game's pending rooms
-    pub games: HashMap<Address, Vec<RoomId>>,
+    pub games: HashMap<GameId, Vec<RoomId>>,
     /// connected peers
     onlines: Arc<Mutex<HashMap<PeerId, Vec<RoomId>>>>,
 }
@@ -68,19 +68,19 @@ impl<H: Handler> Engine<H> {
     }
 
     /// create a pending room when scan from chain
-    pub fn create_pending(&mut self, id: RoomId, game: Address, pid: PeerId, pk: PublicKey) {
+    pub fn create_pending(&mut self, id: RoomId, game: GameId, aid: Address, pid: PeerId) {
         if let Some(games) = self.games.get_mut(&game) {
             if !self.pending.contains_key(&id) {
-                self.pending.insert(id, (game, vec![(pid, pk)]));
+                self.pending.insert(id, (game, vec![(aid, pid)]));
                 games.push(id);
             }
         }
     }
 
     /// join new player to the room
-    pub fn join_pending(&mut self, id: RoomId, pid: PeerId, pk: PublicKey) {
+    pub fn join_pending(&mut self, id: RoomId, aid: Address, pid: PeerId) {
         if let Some((_, peers)) = self.pending.get_mut(&id) {
-            peers.push((pid, pk));
+            peers.push((aid, pid));
         }
     }
 
@@ -105,7 +105,7 @@ impl<H: Handler> Engine<H> {
     ) {
         if let Some((game, peers)) = self.pending.remove(&id) {
             let (handler, tasks) = H::create(&peers).await;
-            let ids: Vec<PeerId> = peers.iter().map(|(id, _pk)| *id).collect();
+            let ids: Vec<PeerId> = peers.iter().map(|(_aid, pid)| *pid).collect();
             // running tasks
             let (tx, rx) = channel(1);
             let room = Arc::new(Mutex::new(HandlerRoom {

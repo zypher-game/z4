@@ -20,14 +20,14 @@ struct CreateRoom {
     game: Address,
     reward: U256,
     player: Address,
-    pubkey: H256,
+    peer: Address,
 }
 
 #[derive(Clone, Debug, EthEvent)]
 struct JoinRoom {
     room: U256,
     player: Address,
-    pubkey: H256,
+    peer: Address,
 }
 
 #[derive(Clone, Debug, EthEvent)]
@@ -123,14 +123,14 @@ pub async fn running(
         }
         let mut end = end_res.unwrap().as_u64() - DELAY; // safe
         if start == end {
-            info!("start {} == {} end", start, end);
+            debug!("start {} == {} end", start, end);
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             continue;
         }
         if end > start && end - start > 200 {
             end = start + 200;
         }
-        info!("Scan {} from {} to {}", i, start, end);
+        debug!("Scan {} from {} to {}", i, start, end);
 
         let (from, to) = if start > end {
             (end, start)
@@ -194,13 +194,13 @@ pub async fn running(
                     game,
                     reward,
                     player,
-                    pubkey,
+                    peer,
                 } = create;
                 info!("scan create: {} {} {} {}", room, game, reward, player);
 
-                match (parse_room(room), parse_peer(player), parse_pk(pubkey)) {
-                    (Some(rid), Some(pid), Some(pk)) => {
-                        sender.send(ChainMessage::CreateRoom(rid, game, pid, pk))?;
+                match (parse_room(room), parse_peer(peer)) {
+                    (Some(rid), Some(peer)) => {
+                        sender.send(ChainMessage::CreateRoom(rid, game, player, peer))?;
                     }
                     _ => continue,
                 }
@@ -209,16 +209,12 @@ pub async fn running(
 
         if let Ok(joins) = joins_room {
             for join in joins {
-                let JoinRoom {
-                    room,
-                    player,
-                    pubkey,
-                } = join;
+                let JoinRoom { room, player, peer } = join;
                 info!("scan join: {} {}", room, player);
 
-                match (parse_room(room), parse_peer(player), parse_pk(pubkey)) {
-                    (Some(rid), Some(pid), Some(pk)) => {
-                        sender.send(ChainMessage::JoinRoom(rid, pid, pk))?;
+                match (parse_room(room), parse_peer(peer)) {
+                    (Some(rid), Some(peer)) => {
+                        sender.send(ChainMessage::JoinRoom(rid, player, peer))?;
                     }
                     _ => continue,
                 }
@@ -289,16 +285,15 @@ fn _parse_peers(cpids: Vec<Address>) -> Vec<PeerId> {
 }
 
 #[inline]
-fn parse_pk(cpk: H256) -> Option<PublicKey> {
-    //PublicKey::deserialize_with_mode(cpk.as_bytes(), Compress::Yes, Validate::Yes).ok()
-    Some(PublicKey::default())
+fn _parse_pk(cpk: H256) -> Option<PublicKey> {
+    PublicKey::deserialize_with_mode(cpk.as_bytes(), Compress::Yes, Validate::Yes).ok()
 }
 
 #[inline]
 fn _parse_pks(cpks: Vec<H256>) -> Vec<PublicKey> {
     let mut res = vec![];
     for cpk in cpks {
-        if let Some(p) = parse_pk(cpk) {
+        if let Some(p) = _parse_pk(cpk) {
             res.push(p)
         }
     }

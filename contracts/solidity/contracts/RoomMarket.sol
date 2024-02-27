@@ -19,7 +19,7 @@ contract RoomMarket is OwnableUpgradeable {
     struct Room {
         mapping(address => bool) exists;
         address[] players;
-        bytes32[] pubkeys;
+        address[] peers;
         address game;
         uint256 reward;
         address sequencer;
@@ -53,8 +53,8 @@ contract RoomMarket is OwnableUpgradeable {
 
     event StakeSequencer(address sequencer, address game, string http, uint256 staking);
     event UnstakeSequencer(address sequencer, uint256 staking);
-    event CreateRoom(uint256 room, address game, uint256 reward, address player, bytes32 pubkey);
-    event JoinRoom(uint256 room, address player, bytes32 pubkey);
+    event CreateRoom(uint256 room, address game, uint256 reward, address player, address peer);
+    event JoinRoom(uint256 room, address player, address peer);
     event StartRoom(uint256 room, address game);
     event AcceptRoom(uint256 room, address sequencer, uint256 locked);
     event OverRoom(uint256 room);
@@ -104,24 +104,24 @@ contract RoomMarket is OwnableUpgradeable {
         emit UnstakeSequencer(msg.sender, sequencer.staking);
     }
 
-    function createRoom(uint256 reward, uint256 limit, address player, bytes32 pubkey) external returns (uint256) {
+    function createRoom(uint256 reward, uint256 limit, address player, address peer) external returns (uint256) {
         nextRoomId += 1;
 
         Room storage room = rooms[nextRoomId];
         room.exists[player] = true;
         room.players.push(player);
-        room.pubkeys.push(pubkey);
+        room.peers.push(peer);
         room.game = msg.sender;
         room.reward = reward;
         room.site = limit - 1;
         room.status = RoomStatus.Opening;
 
-        emit CreateRoom(nextRoomId, room.game, room.reward, player, pubkey);
+        emit CreateRoom(nextRoomId, room.game, room.reward, player, peer);
 
         return nextRoomId;
     }
 
-    function joinRoom(uint256 roomId, address player, bytes32 pubkey) external returns (uint256) {
+    function joinRoom(uint256 roomId, address player, address peer) external returns (uint256) {
         Room storage room = rooms[roomId];
         require(room.game == msg.sender, "RM04");
         require(room.status == RoomStatus.Opening, "RM02");
@@ -129,10 +129,10 @@ contract RoomMarket is OwnableUpgradeable {
 
         room.exists[player] = true;
         room.players.push(player);
-        room.pubkeys.push(pubkey);
+        room.peers.push(peer);
         room.site -= 1;
 
-        emit JoinRoom(roomId, player, pubkey);
+        emit JoinRoom(roomId, player, peer);
 
         if (room.site == 0) {
             room.status = RoomStatus.Waiting;
