@@ -43,11 +43,12 @@ pub async fn handle_rpc<H: Handler>(
         let mut pendings = vec![];
         if let Some(rooms) = engine.games.get(&game) {
             for room in rooms {
-                if let Some((_, ps)) = engine.pending.get(room) {
+                if let Some((_, ps, seq)) = engine.pending.get(room) {
                     let players: Vec<String> = ps.iter().map(|(p, _)| address_hex(p)).collect();
                     pendings.push(json!({
                         "room": room,
-                        "players": players
+                        "players": players,
+                        "sequencer": seq,
                     }));
                 }
             }
@@ -91,7 +92,7 @@ pub async fn handle_rpc<H: Handler>(
         handle_result(&hr.room, res, send, is_rpc).await;
         drop(hr);
         if let Some((data, proof)) = over {
-            let _ = chain_send.send(ChainMessage::OverRoom(gid, data, proof));
+            let _ = chain_send.send(ChainMessage::GameOverRoom(gid, data, proof));
         }
     }
     Ok(())

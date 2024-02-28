@@ -58,7 +58,7 @@ contract RoomMarket is OwnableUpgradeable {
     event CreateRoom(uint256 room, address game, uint256 reward, address player, address peer);
     event JoinRoom(uint256 room, address player, address peer);
     event StartRoom(uint256 room, address game);
-    event AcceptRoom(uint256 room, address sequencer, uint256 locked);
+    event AcceptRoom(uint256 room, address sequencer, string http, uint256 locked);
     event OverRoom(uint256 room);
     event ClaimRoom(uint256 room);
 
@@ -168,7 +168,7 @@ contract RoomMarket is OwnableUpgradeable {
 
         sequencer.staking -= lockAmount;
 
-        emit AcceptRoom(roomId, msg.sender, lockAmount);
+        emit AcceptRoom(roomId, msg.sender, sequencer.http, lockAmount);
     }
 
     function overRoomWithZk(uint256 roomId, bytes calldata data, bytes calldata proof) external {

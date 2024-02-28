@@ -48,6 +48,12 @@
       },
       {
         "indexed": false,
+        "internalType": "string",
+        "name": "http",
+        "type": "string"
+      },
+      {
+        "indexed": false,
         "internalType": "uint256",
         "name": "locked",
         "type": "uint256"

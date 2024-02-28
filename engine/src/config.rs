@@ -1,4 +1,4 @@
-use ethers::prelude::{Address, Http, LocalWallet, Provider, Signer, SignerMiddleware, H160, U256};
+use ethers::prelude::{Address, Http, LocalWallet, Provider, SignerMiddleware, H160, U256};
 use std::{path::PathBuf, sync::Arc};
 use tdn::prelude::{Config as TdnConfig, PeerKey};
 
@@ -83,7 +83,6 @@ impl Config {
 
         let sk_str = self.secret_key.trim_start_matches("0x");
         let signer = LocalWallet::from_bytes(&hex::decode(&sk_str).unwrap()).unwrap();
-        let signer_addr = signer.address();
         let signer_provider = Arc::new(
             SignerMiddleware::new_with_provider_chain(providers[0].clone(), signer)
                 .await
@@ -96,6 +95,7 @@ impl Config {
             let token_address = H160(network.address("Token").unwrap());
             let contract = RoomMarket::new(market_address, signer_provider.clone());
             let token = Token::new(token_address, signer_provider.clone());
+
             let amount = contract.min_staking().await.unwrap() * U256::from(10);
             for game in &self.games {
                 let addr = game.parse::<Address>().unwrap();

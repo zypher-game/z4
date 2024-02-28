@@ -40,7 +40,13 @@ struct StartRoom {
 struct AcceptRoom {
     room: U256,
     sequencer: Address,
+    http: String,
     locked: U256,
+}
+
+#[derive(Clone, Debug, EthEvent)]
+struct OverRoom {
+    room: U256,
 }
 
 pub fn chain_channel() -> (
@@ -155,6 +161,8 @@ pub async fn running(
             .from_block(from)
             .to_block(to);
 
+        let over_room = markets[i].event::<OverRoom>().from_block(from).to_block(to);
+
         let creates_room =
             if let Ok(res) = timeout(Duration::from_secs(TIMEOUT), create_room.query()).await {
                 res
@@ -181,6 +189,14 @@ pub async fn running(
 
         let accepts_room =
             if let Ok(res) = timeout(Duration::from_secs(TIMEOUT), accept_room.query()).await {
+                res
+            } else {
+                warn!("Timeout: {}", i);
+                continue;
+            };
+
+        let overs_room =
+            if let Ok(res) = timeout(Duration::from_secs(TIMEOUT), over_room.query()).await {
                 res
             } else {
                 warn!("Timeout: {}", i);
@@ -240,12 +256,26 @@ pub async fn running(
                 let AcceptRoom {
                     room,
                     sequencer,
+                    http,
                     locked,
                 } = accept;
-                info!("scan accept: {} {} {}", room, sequencer, locked);
+                info!("scan accept: {} {} {} {}", room, sequencer, http, locked);
                 match (parse_room(room), parse_peer(sequencer)) {
                     (Some(rid), Some(pid)) => {
-                        sender.send(ChainMessage::AcceptRoom(rid, pid))?;
+                        sender.send(ChainMessage::AcceptRoom(rid, pid, http))?;
+                    }
+                    _ => continue,
+                }
+            }
+        }
+
+        if let Ok(overs) = overs_room {
+            for over in overs {
+                let OverRoom { room } = over;
+                info!("scan over: {}", room);
+                match parse_room(room) {
+                    Some(rid) => {
+                        sender.send(ChainMessage::ChainOverRoom(rid))?;
                     }
                     _ => continue,
                 }

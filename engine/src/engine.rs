@@ -41,8 +41,8 @@ pub struct Engine<H: Handler> {
     config: Config,
     /// rooms which is running
     rooms: HashMap<RoomId, Arc<Mutex<HandlerRoom<H>>>>,
-    /// rooms which is waiting create
-    pub pending: HashMap<RoomId, (GameId, Vec<(Address, PeerId)>)>,
+    /// rooms which is waiting create, room => (game, players, sequencer)
+    pub pending: HashMap<RoomId, (GameId, Vec<(Address, PeerId)>, Option<(PeerId, String)>)>,
     /// supported games and game's pending rooms
     pub games: HashMap<GameId, Vec<RoomId>>,
     /// connected peers
@@ -71,7 +71,7 @@ impl<H: Handler> Engine<H> {
     pub fn create_pending(&mut self, id: RoomId, game: GameId, aid: Address, pid: PeerId) {
         if let Some(games) = self.games.get_mut(&game) {
             if !self.pending.contains_key(&id) {
-                self.pending.insert(id, (game, vec![(aid, pid)]));
+                self.pending.insert(id, (game, vec![(aid, pid)], None));
                 games.push(id);
             }
         }
@@ -79,14 +79,14 @@ impl<H: Handler> Engine<H> {
 
     /// join new player to the room
     pub fn join_pending(&mut self, id: RoomId, aid: Address, pid: PeerId) {
-        if let Some((_, peers)) = self.pending.get_mut(&id) {
+        if let Some((_, peers, _)) = self.pending.get_mut(&id) {
             peers.push((aid, pid));
         }
     }
 
     /// create a pending room when scan from chain
     pub fn del_pending(&mut self, id: RoomId) {
-        if let Some((game, _)) = self.pending.remove(&id) {
+        if let Some((game, _, _)) = self.pending.remove(&id) {
             self.games.get_mut(&game).map(|v| vec_remove_item(v, &id));
         }
     }
@@ -100,23 +100,29 @@ impl<H: Handler> Engine<H> {
     pub async fn start_room(
         &mut self,
         id: RoomId,
+        sequencer: (PeerId, String),
+        is_self: bool,
         send: Sender<SendMessage>,
         chain_send: UnboundedSender<ChainMessage>,
     ) {
-        if let Some((game, peers)) = self.pending.remove(&id) {
-            let (handler, tasks) = H::create(&peers).await;
-            let ids: Vec<PeerId> = peers.iter().map(|(_aid, pid)| *pid).collect();
-            // running tasks
-            let (tx, rx) = channel(1);
-            let room = Arc::new(Mutex::new(HandlerRoom {
-                handler,
-                game,
-                tasks: tx,
-                room: Room::new(id, &ids),
-            }));
+        if let Some((game, peers, seq)) = self.pending.get_mut(&id) {
+            *seq = Some(sequencer);
 
-            tokio::spawn(handle_tasks(id, room.clone(), send, chain_send, rx, tasks));
-            self.rooms.insert(id, room);
+            if is_self {
+                let (handler, tasks) = H::create(&peers).await;
+                let ids: Vec<PeerId> = peers.iter().map(|(_aid, pid)| *pid).collect();
+                // running tasks
+                let (tx, rx) = channel(1);
+                let room = Arc::new(Mutex::new(HandlerRoom {
+                    handler,
+                    game: *game,
+                    tasks: tx,
+                    room: Room::new(id, &ids),
+                }));
+
+                tokio::spawn(handle_tasks(id, room.clone(), send, chain_send, rx, tasks));
+                self.rooms.insert(id, room);
+            }
         }
     }
 
@@ -124,7 +130,6 @@ impl<H: Handler> Engine<H> {
         if let Some(room) = self.rooms.remove(&id) {
             let _ = room.lock().await.tasks.send(TaskMessage::Close).await;
         }
-        self.del_pending(id);
 
         // TODO clear onlines
     }
@@ -206,9 +211,6 @@ impl<H: Handler> Engine<H> {
             tokio::spawn(pool_listen(pool_provider, chain_net, send2, pool_recv));
         }
 
-        // DEBUG need delete
-        // self.start_room(1, send.clone(), chain_send.clone()).await;
-
         loop {
             let work = select! {
                 w = async {
@@ -257,22 +259,31 @@ impl<H: Handler> Engine<H> {
                             // TODO fetch room from chain.
                         }
                     }
-                    ChainMessage::AcceptRoom(rid, sequencer) => {
-                        if sequencer == peer_addr {
-                            println!("Engine: start new room: {}", rid);
-                            // if mine, create room
-                            self.start_room(rid, send.clone(), chain_send.clone()).await;
+                    ChainMessage::AcceptRoom(rid, sequencer, http) => {
+                        println!("Engine: start new room: {}", rid);
+                        // if mine, create room
+                        let is_own = sequencer == peer_addr;
+                        self.start_room(
+                            rid,
+                            (sequencer, http),
+                            is_own,
+                            send.clone(),
+                            chain_send.clone(),
+                        )
+                        .await;
+
+                        if is_own {
                             let _ = send
                                 .send(SendMessage::Network(NetworkType::AddGroup(rid)))
                                 .await;
-                        } else {
-                            // if not mine, delete it.
-                            self.del_pending(rid);
                         }
                     }
-                    ChainMessage::OverRoom(gid, data, proof) => {
+                    ChainMessage::GameOverRoom(gid, data, proof) => {
                         let _ = pool_send.send(PoolMessage::OverRoom(gid, data, proof));
                         self.over_room(gid).await;
+                    }
+                    ChainMessage::ChainOverRoom(gid) => {
+                        self.del_pending(gid);
                     }
                     ChainMessage::Reprove => {
                         // TODO logic

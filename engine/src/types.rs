@@ -49,8 +49,9 @@ pub enum ChainMessage {
     CreateRoom(RoomId, GameId, Address, PeerId),
     JoinRoom(RoomId, Address, PeerId),
     StartRoom(RoomId, Address),
-    AcceptRoom(RoomId, PeerId),
-    OverRoom(RoomId, Vec<u8>, Vec<u8>),
+    AcceptRoom(RoomId, PeerId, String),
+    GameOverRoom(RoomId, Vec<u8>, Vec<u8>),
+    ChainOverRoom(RoomId),
     Reprove,
 }
 

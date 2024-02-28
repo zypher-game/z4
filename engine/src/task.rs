@@ -85,7 +85,7 @@ async fn running<H: Handler>(
                     let over = res.replace_over();
                     handle_result(&room_lock.room, res, &send, None).await;
                     if let Some((data, proof)) = over {
-                        let _ = chain_send.send(ChainMessage::OverRoom(room_id, data, proof));
+                        let _ = chain_send.send(ChainMessage::GameOverRoom(room_id, data, proof));
                     }
                 }
                 drop(room_lock);

@@ -65,7 +65,7 @@ pub async fn handle_p2p<H: Handler>(
                 handle_result(&hr.room, res, send, None).await;
                 drop(hr);
                 if let Some((data, proof)) = over {
-                    let _ = chain_send.send(ChainMessage::OverRoom(gid, data, proof));
+                    let _ = chain_send.send(ChainMessage::GameOverRoom(gid, data, proof));
                 }
             }
         }
