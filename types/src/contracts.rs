@@ -6,7 +6,7 @@ pub const DEMO_ABI: &str = include_str!("../../public/ABI/Demo.json");
 
 const LOCALHOST_ADDRESS: &str = include_str!("../../public/localhost.json");
 const HOLESKY_ADDRESS: &str = include_str!("../../public/localhost.json");
-const SEPOLIA_ADDRESS: &str = include_str!("../../public/localhost.json");
+const SEPOLIA_ADDRESS: &str = include_str!("../../public/sepolia.json");
 
 /// Default network
 pub const DEFAULT_NETWORK: Network = Network::Localhost;

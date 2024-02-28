@@ -21,24 +21,12 @@ module.exports = {
       url: 'http://127.0.0.1:8545',
       accounts: [LOCAL_SK1]
     },
-    mumbai: {
-      url: 'https://rpc.ankr.com/polygon_mumbai',
+    holesky: {
+      url: 'https://1rpc.io/holesky',
       accounts: [SECRET_KEY]
     },
-    fuji: {
-      url: 'https://rpc.ankr.com/avalanche_fuji',
-      accounts: [SECRET_KEY]
-    },
-    bsctestnet: {
-      url: 'https://data-seed-prebsc-1-s3.binance.org:8545',
-      accounts: [SECRET_KEY]
-    },
-    lineagoerli: {
-      url: 'https://linea-goerli.infura.io/v3/47f445c73c594312b339de8afbecc99d',
-      accounts: [SECRET_KEY]
-    },
-    arbitrumgoerli: {
-      url: 'https://goerli-rollup.arbitrum.io/rpc',
+    sepolia: {
+      url: 'https://rpc.sepolia.org',
       accounts: [SECRET_KEY]
     },
   },
