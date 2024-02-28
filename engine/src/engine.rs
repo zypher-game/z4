@@ -238,7 +238,7 @@ impl<H: Handler> Engine<H> {
                         }
                     }
                     ReceiveMessage::NetworkLost => {
-                        println!("No network connections");
+                        debug!("No network connections");
                     }
                     ReceiveMessage::Own(..) => {}
                 },

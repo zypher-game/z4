@@ -12,7 +12,7 @@ use crate::contracts::{Network, RoomMarket};
 use crate::{ChainMessage, PeerId, PublicKey, RoomId};
 
 const TIMEOUT: u64 = 10;
-const DELAY: u64 = 3;
+const DELAY: u64 = 1;
 
 #[derive(Clone, Debug, EthEvent)]
 struct CreateRoom {
