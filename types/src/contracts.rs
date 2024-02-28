@@ -7,6 +7,7 @@ pub const DEMO_ABI: &str = include_str!("../../public/ABI/Demo.json");
 const LOCALHOST_ADDRESS: &str = include_str!("../../public/localhost.json");
 const HOLESKY_ADDRESS: &str = include_str!("../../public/localhost.json");
 const SEPOLIA_ADDRESS: &str = include_str!("../../public/sepolia.json");
+const OPBNBTESTNET_ADDRESS: &str = include_str!("../../public/opbnbtestnet.json");
 
 /// Default network
 pub const DEFAULT_NETWORK: Network = Network::Localhost;
@@ -17,6 +18,7 @@ pub enum Network {
     Localhost,
     Holesky,
     Sepolia,
+    OpBNBTestnet,
 }
 
 impl Network {
@@ -26,6 +28,7 @@ impl Network {
             Network::Localhost => LOCALHOST_ADDRESS,
             Network::Holesky => HOLESKY_ADDRESS,
             Network::Sepolia => SEPOLIA_ADDRESS,
+            Network::OpBNBTestnet => OPBNBTESTNET_ADDRESS,
         };
 
         if let Ok(address) = serde_json::from_str::<Value>(addresses) {
@@ -49,6 +52,7 @@ impl Network {
             "localhost" => Network::Localhost,
             "holesky" => Network::Holesky,
             "sepolia" => Network::Sepolia,
+            "opbnbtestnet" => Network::OpBNBTestnet,
             _ => DEFAULT_NETWORK,
         }
     }
@@ -58,6 +62,7 @@ impl Network {
             Network::Localhost => "localhost",
             Network::Holesky => "holesky",
             Network::Sepolia => "sepolia",
+            Network::OpBNBTestnet => "opbnbtestnet",
         }
     }
 
@@ -65,6 +70,7 @@ impl Network {
         match chain_id {
             17000 => Network::Holesky,
             11155111 => Network::Sepolia,
+            5611 => Network::OpBNBTestnet,
             _ => DEFAULT_NETWORK,
         }
     }
@@ -112,7 +118,7 @@ impl NetworkConfig {
                 chain_name: "Holesky".to_owned(),
                 rpc_urls: vec!["https://1rpc.io/holesky".to_owned()],
                 icon_urls: vec!["https://icons.llamao.fi/icons/chains/rsz_ethereum.jpg".to_owned()],
-                block_explorer_urls: vec!["https://holesky.beaconcha.in".to_owned()],
+                block_explorer_urls: vec!["https://holesky.beaconcha.in/".to_owned()],
                 native_currency: NetworkCurrency {
                     name: "Holesky ETH".to_owned(),
                     symbol: "ETH".to_owned(),
@@ -124,10 +130,22 @@ impl NetworkConfig {
                 chain_name: "Sepolia".to_owned(),
                 rpc_urls: vec!["https://rpc.sepolia.org".to_owned()],
                 icon_urls: vec!["https://icons.llamao.fi/icons/chains/rsz_ethereum.jpg".to_owned()],
-                block_explorer_urls: vec!["https://sepolia.etherscan.io".to_owned()],
+                block_explorer_urls: vec!["https://sepolia.etherscan.io/".to_owned()],
                 native_currency: NetworkCurrency {
                     name: "Sepolia ETH".to_owned(),
                     symbol: "ETH".to_owned(),
+                    decimals: 18,
+                },
+            },
+            Network::OpBNBTestnet => NetworkConfig {
+                chain_id: 5611,
+                chain_name: "opBNB Testnet".to_owned(),
+                rpc_urls: vec!["https://opbnb-testnet-rpc.bnbchain.org".to_owned()],
+                icon_urls: vec!["https://icons.llamao.fi/icons/chains/rsz_opbnb.jpg".to_owned()],
+                block_explorer_urls: vec!["http://testnet.opbnbscan.com/".to_owned()],
+                native_currency: NetworkCurrency {
+                    name: "opBNB ETH".to_owned(),
+                    symbol: "tBNB".to_owned(),
                     decimals: 18,
                 },
             },

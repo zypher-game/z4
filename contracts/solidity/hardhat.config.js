@@ -29,6 +29,10 @@ module.exports = {
       url: 'https://rpc.sepolia.org',
       accounts: [SECRET_KEY]
     },
+    opbnbtestnet: {
+      url: 'https://opbnb-testnet-rpc.bnbchain.org',
+      accounts: [SECRET_KEY]
+    },
   },
   solidity: {
     version: "0.8.20",

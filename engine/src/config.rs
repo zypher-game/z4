@@ -99,7 +99,7 @@ impl Config {
             let amount = contract.min_staking().await.unwrap() * U256::from(10);
             for game in &self.games {
                 let addr = game.parse::<Address>().unwrap();
-                if !contract.is_sequencer(signer_addr, addr).await.unwrap() {
+                if true {
                     match token.approve(market_address, amount).send().await {
                         Ok(pending) => {
                             if let Ok(_receipt) = pending.await {
