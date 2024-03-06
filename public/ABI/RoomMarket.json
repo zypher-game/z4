@@ -1,5 +1,26 @@
 [
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_token",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_minStaking",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_playerRoomLock",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
     "inputs": [],
     "name": "InvalidInitialization",
     "type": "error"
@@ -315,29 +336,6 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_token",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_minStaking",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_playerRoomLock",
-        "type": "uint256"
-      }
-    ],
-    "name": "initialize",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
         "name": "sequencer",
         "type": "address"
       },
@@ -426,12 +424,12 @@
         "type": "bytes"
       },
       {
-        "internalType": "bytes[]",
-        "name": "proofs",
-        "type": "bytes[]"
+        "internalType": "bytes",
+        "name": "proof",
+        "type": "bytes"
       }
     ],
-    "name": "overRoomWithSign",
+    "name": "overRoomWithThreshold",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

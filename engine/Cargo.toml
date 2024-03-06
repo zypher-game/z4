@@ -37,3 +37,4 @@ request = [
   "tokio-tungstenite",
   "futures-util"
 ]
+risc0 = []

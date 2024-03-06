@@ -18,9 +18,9 @@ contract Demo is OwnableUpgradeable {
     /// waiting & running rooms
     mapping(uint256 => Room) private rooms;
 
-    function initialize(address _roomMarket) external initializer {
-        // init
+    constructor(address _roomMarket) {
         roomMarket = _roomMarket;
+
         __Ownable_init(msg.sender);
     }
 

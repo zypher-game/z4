@@ -1,5 +1,16 @@
 [
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_roomMarket",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
     "inputs": [],
     "name": "InvalidInitialization",
     "type": "error"
@@ -85,19 +96,6 @@
       }
     ],
     "name": "createRoom",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_roomMarket",
-        "type": "address"
-      }
-    ],
-    "name": "initialize",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

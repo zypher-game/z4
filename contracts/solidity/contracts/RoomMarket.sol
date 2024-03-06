@@ -62,7 +62,7 @@ contract RoomMarket is OwnableUpgradeable {
     event OverRoom(uint256 room);
     event ClaimRoom(uint256 room);
 
-    function initialize(address _token, uint256 _minStaking, uint256 _playerRoomLock) external initializer {
+    constructor(address _token, uint256 _minStaking, uint256 _playerRoomLock) {
         token = _token;
         minStaking = _minStaking;
         playerRoomLock = _playerRoomLock;
@@ -182,13 +182,14 @@ contract RoomMarket is OwnableUpgradeable {
         _overRoom(roomId);
     }
 
-    function overRoomWithSign(uint256 roomId, bytes calldata data, bytes[] calldata proofs) external {
+    function overRoomWithThreshold(uint256 roomId, bytes calldata data, bytes calldata proof) external {
         Room storage room = rooms[roomId];
         require(room.status == RoomStatus.Playing, "RM02");
         require(room.sequencer == msg.sender, "RM06");
-        require(proofs.length <= room.players.length && proofs.length >= room.players.length / 2 && data.length > 0, "RM07");
 
-        // TODO callback & verify sign
+        // verify sign
+        bytes32 hash = keccak256(abi.encodePacked('\x19Ethereum Signed Message:\n32', roomId, data));
+        // address signer = ECDSA.recover(hash, proof);
 
         _overRoom(roomId);
 
