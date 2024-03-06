@@ -25,7 +25,7 @@ pub enum Error {
     Zk(ZplonkError),
 }
 
-pub use ethers::prelude::Address;
+pub use ethers::prelude::{Address, H160};
 
 pub type Result<T> = core::result::Result<T, Error>;
 

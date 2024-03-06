@@ -96,17 +96,6 @@ impl Config {
             let contract = RoomMarket::new(market_address, signer_provider.clone());
             let token = Token::new(token_address, signer_provider.clone());
 
-            let demo_address = H160(network.address("Demo").unwrap());
-            let demo = crate::contracts::Demo::new(demo_address, signer_provider.clone());
-            contract
-                .initialize(token_address, U256::from(1), U256::from(1))
-                .send()
-                .await;
-
-            tokio::time::sleep(std::time::Duration::from_secs(6)).await;
-            demo.initialize(market_address).send().await;
-            tokio::time::sleep(std::time::Duration::from_secs(6)).await;
-
             let amount = contract.min_staking().await.unwrap() * U256::from(1000000);
             for game in &self.games {
                 let addr = game.parse::<Address>().unwrap();

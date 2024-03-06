@@ -1,9 +1,10 @@
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
-use z4_engine::{generate_keypair, Config, Engine, PeerKey};
+use z4_engine::{chain_channel, ChainMessage, Config, Engine, PeerKey, H160};
 
 mod shoot_common;
 use shoot_common::*;
 
+const GAME: &str = "0x0000000000000000000000000000000000000000";
 const ROOM: u64 = 1;
 
 #[tokio::main]
@@ -18,10 +19,7 @@ async fn main() {
     let player2 = PeerKey::generate(&mut prng); // for evm-chain
     let player3 = PeerKey::generate(&mut prng); // for evm-chain
     let player4 = PeerKey::generate(&mut prng); // for evm-chain
-    let (sk1, pk1) = generate_keypair(&mut prng); // for player
-    let (sk2, pk2) = generate_keypair(&mut prng); // for player
-    let (sk3, pk3) = generate_keypair(&mut prng); // for player
-    let (sk4, pk4) = generate_keypair(&mut prng); // for player
+
     let sid = server_key.peer_id();
     let id1 = player1.peer_id();
     let id2 = player2.peer_id();
@@ -37,17 +35,28 @@ async fn main() {
     config.ws_port = Some(8000);
     config.secret_key = hex::encode(server_key.to_db_bytes());
     config.groups = vec![ROOM]; // Add default room to it.
+    config.games = vec![GAME.to_owned()];
+    let game = GAME.parse().unwrap();
 
     let mut engine = Engine::<ShootHandler>::init(config);
-    engine.add_pending(ROOM, vec![id1, id2, id3, id4], vec![pk1, pk2, pk3, pk4]);
-    engine.start_room(ROOM).await;
+    engine.create_pending(ROOM, game, H160(id1.0), id1);
+    engine.join_pending(ROOM, H160(id2.0), id2);
+    engine.join_pending(ROOM, H160(id3.0), id3);
+    engine.join_pending(ROOM, H160(id4.0), id4);
 
-    tokio::spawn(engine.run());
+    let (chain_send, chain_recv) = chain_channel();
+    let chain_send1 = chain_send.clone();
+    tokio::spawn(engine.run_with_channel(chain_send, chain_recv));
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        chain_send1.send(ChainMessage::AcceptRoom(ROOM, sid, "".to_owned()))
+    });
+
     let _ = tokio::join! {
-        mock_player_with_rpc(ROOM, player1, opponent1, sk1),
-        mock_player_with_rpc(ROOM, player2, opponent2, sk2),
-        mock_player_with_p2p(ROOM, player3, opponent3, sid, sk3),
-        mock_player_with_p2p(ROOM, player4, opponent4, sid, sk4),
+        mock_player_with_rpc(ROOM, player1, opponent1),
+        mock_player_with_rpc(ROOM, player2, opponent2),
+        mock_player_with_p2p(ROOM, player3, opponent3, sid),
+        mock_player_with_p2p(ROOM, player4, opponent4, sid),
     };
     println!("GAME OVER");
 }

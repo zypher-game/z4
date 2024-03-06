@@ -20,6 +20,7 @@ pub use config::Config;
 pub use contracts::*;
 pub use engine::Engine;
 pub use key::*;
+pub use scan::chain_channel;
 pub use serde_json::{json, Value};
 pub use tdn::{
     prelude::{GroupId, Peer, PeerId, PeerKey, SendType},

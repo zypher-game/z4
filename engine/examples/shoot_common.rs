@@ -1,5 +1,5 @@
 use ark_bn254::Fr;
-use ark_ed_on_bn254::EdwardsAffine;
+use ark_ff::PrimeField;
 use ark_std::rand::{CryptoRng, RngCore, SeedableRng};
 use rand_chacha::ChaChaRng;
 use std::collections::HashMap;
@@ -8,8 +8,8 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use z4_engine::{
     json,
     request::{message_channel, run_p2p_channel, run_ws_channel, ChannelMessage},
-    DefaultParams, Error, HandleResult, Handler, Param, Peer, PeerId, PeerKey, PublicKey, Result,
-    RoomId, SecretKey, Value,
+    Address, DefaultParams, Error, HandleResult, Handler, Peer, PeerId, PeerKey, Result, RoomId,
+    Tasks,
 };
 use zplonk::{
     gen_params::{load_lagrange_params, load_srs_params, ProverParams, VerifierParams},
@@ -32,7 +32,7 @@ pub struct ShootPlayer {
 
 #[derive(Default)]
 pub struct ShootHandler {
-    accounts: HashMap<PeerId, (PublicKey, ShootPlayer)>,
+    accounts: HashMap<PeerId, (Address, ShootPlayer)>,
     operations: Vec<ShootOperation>,
 }
 
@@ -40,14 +40,14 @@ pub struct ShootHandler {
 impl Handler for ShootHandler {
     type Param = DefaultParams;
 
-    async fn create(peers: &[(PeerId, PublicKey)]) -> Self {
+    async fn create(peers: &[(Address, PeerId)]) -> (Self, Tasks<Self>) {
         let accounts = peers
             .iter()
-            .map(|(id, pk)| {
+            .map(|(account, peer)| {
                 (
-                    *id,
+                    *peer,
                     (
-                        *pk,
+                        *account,
                         ShootPlayer {
                             hp: TOTAL,
                             bullet: TOTAL,
@@ -57,10 +57,13 @@ impl Handler for ShootHandler {
             })
             .collect();
 
-        Self {
-            accounts,
-            operations: vec![],
-        }
+        (
+            Self {
+                accounts,
+                operations: vec![],
+            },
+            Default::default(),
+        )
     }
 
     async fn handle(
@@ -77,24 +80,24 @@ impl Handler for ShootHandler {
                 let target = PeerId::from_hex(value.as_str().unwrap()).unwrap();
 
                 let mut a_bullet = 0;
-                let mut a_pk = PublicKey::default();
-                if let Some((pk, account)) = self.accounts.get_mut(&player) {
+                let mut a_account = Address::default();
+                if let Some((aid, account)) = self.accounts.get_mut(&player) {
                     if account.bullet > 0 {
                         account.bullet -= 1;
                         a_bullet = account.bullet;
-                        a_pk = *pk;
+                        a_account = *aid;
                     } else {
                         return Err(Error::Params);
                     }
                 }
 
                 let mut b_hp = 0;
-                let mut b_pk = PublicKey::default();
-                if let Some((pk, account)) = self.accounts.get_mut(&target) {
+                let mut b_account = Address::default();
+                if let Some((aid, account)) = self.accounts.get_mut(&target) {
                     if account.hp > 0 {
                         account.hp -= 1;
                         b_hp = account.hp;
-                        b_pk = *pk;
+                        b_account = *aid;
                     } else {
                         return Err(Error::Params);
                     }
@@ -117,8 +120,8 @@ impl Handler for ShootHandler {
                 );
 
                 self.operations.push(ShootOperation {
-                    from: a_pk,
-                    to: b_pk,
+                    from: a_account,
+                    to: b_account,
                 });
 
                 // check game is over
@@ -139,8 +142,11 @@ impl Handler for ShootHandler {
 
                 if game_over {
                     // zkp
-                    let players: Vec<PublicKey> =
-                        self.accounts.iter().map(|(_, (pk, _))| *pk).collect();
+                    let players: Vec<Address> = self
+                        .accounts
+                        .iter()
+                        .map(|(_, (account, _))| *account)
+                        .collect();
 
                     let mut prng = ChaChaRng::from_seed([0u8; 32]);
                     let prover_params = gen_prover_params(&players, &self.operations).unwrap();
@@ -166,12 +172,7 @@ impl Handler for ShootHandler {
     }
 }
 
-pub async fn mock_player_with_rpc(
-    room_id: RoomId,
-    player: PeerKey,
-    opponents: Vec<PeerId>,
-    _sk: SecretKey,
-) {
+pub async fn mock_player_with_rpc(room_id: RoomId, player: PeerKey, opponents: Vec<PeerId>) {
     println!("Player: {:?} with RPC", player.peer_id());
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
@@ -189,7 +190,6 @@ pub async fn mock_player_with_p2p(
     player: PeerKey,
     opponents: Vec<PeerId>,
     sid: PeerId,
-    _sk: SecretKey,
 ) {
     println!("Player: {:?} with P2P", player.peer_id());
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
@@ -303,19 +303,18 @@ async fn mock_player(
 
 #[derive(Clone)]
 pub struct ShootOperation {
-    pub from: EdwardsAffine,
-    pub to: EdwardsAffine,
+    pub from: Address,
+    pub to: Address,
 }
 
 pub struct ShootResult {
-    pub player: EdwardsAffine,
+    pub player: Fr,
     pub hp: u32,
     pub bullet: u32,
 }
 
 pub struct ShootResultVar {
-    pub p_x: VarIndex,
-    pub p_y: VarIndex,
+    pub p: VarIndex,
     pub hp: VarIndex,
     pub bullet: VarIndex,
     pub r_hp: u32,
@@ -327,29 +326,29 @@ const PLONK_PROOF_TRANSCRIPT: &[u8] = b"Plonk shoot Proof";
 const N_TRANSCRIPT: &[u8] = b"Number of players";
 
 pub(crate) fn build_cs(
-    players: &[EdwardsAffine],
+    players: &[Address],
     inputs: &[ShootOperation],
 ) -> (TurboCS<Fr>, Vec<ShootResult>) {
     let mut cs = TurboCS::new();
 
-    let mut indexs: HashMap<EdwardsAffine, usize> = HashMap::new();
+    let mut indexs: HashMap<Address, usize> = HashMap::new();
     let mut results: Vec<ShootResultVar> = vec![];
     let hp = cs.new_variable(Fr::from(TOTAL));
     let bullet = cs.new_variable(Fr::from(TOTAL));
 
-    for p in players {
-        let p_x = cs.new_variable(p.x);
-        let p_y = cs.new_variable(p.y);
+    for player in players {
+        let mut bytes = [0u8; 32];
+        bytes[1..21].copy_from_slice(player.as_bytes());
+        let p = cs.new_variable(Fr::from_be_bytes_mod_order(&bytes));
         let r = ShootResultVar {
-            p_x,
-            p_y,
+            p,
             hp,
             bullet,
             r_hp: TOTAL,
             r_bullet: TOTAL,
         };
         let index = results.len();
-        indexs.insert(*p, index);
+        indexs.insert(*player, index);
         results.push(r);
     }
 
@@ -373,13 +372,12 @@ pub(crate) fn build_cs(
 
     let mut publics = vec![];
     for r in results {
-        cs.prepare_pi_variable(r.p_x);
-        cs.prepare_pi_variable(r.p_y);
+        cs.prepare_pi_variable(r.p);
         cs.prepare_pi_variable(r.bullet);
         cs.prepare_pi_variable(r.hp);
 
         publics.push(ShootResult {
-            player: EdwardsAffine::new(cs.witness[r.p_x], cs.witness[r.p_y]),
+            player: cs.witness[r.p],
             bullet: r.r_bullet,
             hp: r.r_hp,
         });
@@ -391,7 +389,7 @@ pub(crate) fn build_cs(
 }
 
 pub fn gen_prover_params(
-    players: &[EdwardsAffine],
+    players: &[Address],
     operations: &[ShootOperation],
 ) -> Result<ProverParams> {
     let (cs, _) = build_cs(players, operations);
@@ -417,7 +415,7 @@ pub fn get_verifier_params(prover_params: ProverParams) -> VerifierParams {
 pub fn prove_shoot<R: CryptoRng + RngCore>(
     prng: &mut R,
     prover_params: &ProverParams,
-    players: &[EdwardsAffine],
+    players: &[Address],
     inputs: &[ShootOperation],
 ) -> Result<(PlonkProof<KZGCommitmentSchemeBN254>, Vec<ShootResult>)> {
     let n = players.len();
@@ -454,8 +452,7 @@ pub fn verify_shoot(
     let mut online_inputs = vec![];
 
     for p in publics.iter() {
-        online_inputs.push(p.player.x);
-        online_inputs.push(p.player.y);
+        online_inputs.push(p.player);
         online_inputs.push(Fr::from(p.bullet));
         online_inputs.push(Fr::from(p.hp));
     }

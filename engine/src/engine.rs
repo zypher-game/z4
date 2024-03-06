@@ -12,7 +12,7 @@ use tdn::{
 };
 use tokio::{
     select,
-    sync::mpsc::{channel, Sender, UnboundedSender},
+    sync::mpsc::{channel, Sender, UnboundedReceiver, UnboundedSender},
     sync::Mutex,
 };
 
@@ -191,7 +191,16 @@ impl<H: Handler> Engine<H> {
         }
     }
 
-    pub async fn run(mut self) -> Result<()> {
+    pub async fn run(self) -> Result<()> {
+        let (chain_send, chain_recv) = chain_channel();
+        self.run_with_channel(chain_send, chain_recv).await
+    }
+
+    pub async fn run_with_channel(
+        mut self,
+        chain_send: UnboundedSender<ChainMessage>,
+        mut chain_recv: UnboundedReceiver<ChainMessage>,
+    ) -> Result<()> {
         let (tdn_config, key) = self.config.to_tdn();
         let chain_option = self.config.to_chain().await;
 
@@ -202,7 +211,6 @@ impl<H: Handler> Engine<H> {
             println!("WS    : ws://0.0.0.0:{}", p);
         }
 
-        let (chain_send, mut chain_recv) = chain_channel();
         let (pool_send, pool_recv) = pool_channel();
         if let Some((scan_providers, pool_provider, chain_net, start_block)) = chain_option {
             let send1 = chain_send.clone();

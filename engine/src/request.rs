@@ -124,8 +124,8 @@ async fn ws_listen<P: Param>(
                 let msg = msg.to_text().unwrap_or("");
                 match serde_json::from_str::<Value>(&msg) {
                     Ok(mut values) => {
-                        let gid = values["gid"].as_u64().unwrap(); // TODO unwrap
-                        let method = values["method"].as_str().unwrap().to_owned();
+                        let gid = values["gid"].as_u64().unwrap_or(0);
+                        let method = values["method"].as_str().unwrap_or("").to_owned();
                         // let server_id = values["peer"].as_str().unwrap(); TODO
                         match P::from_value(values["result"].take()) {
                             Ok(p) => {

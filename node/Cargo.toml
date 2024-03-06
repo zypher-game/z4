@@ -18,5 +18,5 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = "1.35"
 tracing = "0.1"
-z4-engine = { version = "0.1", path = "../types" }
+z4-engine = { version = "0.1", path = "../engine" }
 z4-types = { version = "0.1", path = "../types" }
