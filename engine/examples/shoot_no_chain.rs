@@ -7,6 +7,8 @@ use shoot_common::*;
 const GAME: &str = "0x0000000000000000000000000000000000000000";
 const ROOM: u64 = 1;
 
+/// in engine,
+/// - run `cargo run --example shoot_no_chain`
 #[tokio::main]
 async fn main() {
     std::env::set_var("RUST_LOG", "debug");

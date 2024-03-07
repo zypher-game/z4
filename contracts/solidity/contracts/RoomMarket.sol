@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 enum RoomStatus {
     // the room not exist
@@ -17,7 +17,7 @@ enum RoomStatus {
     Over
 }
 
-contract RoomMarket is OwnableUpgradeable {
+contract RoomMarket is Ownable {
     struct Room {
         mapping(address => bool) exists;
         address[] players;
@@ -62,13 +62,10 @@ contract RoomMarket is OwnableUpgradeable {
     event OverRoom(uint256 room);
     event ClaimRoom(uint256 room);
 
-    constructor(address _token, uint256 _minStaking, uint256 _playerRoomLock) {
+    constructor(address _token, uint256 _minStaking, uint256 _playerRoomLock) Ownable(msg.sender) {
         token = _token;
         minStaking = _minStaking;
         playerRoomLock = _playerRoomLock;
-
-        // init
-        __Ownable_init(msg.sender);
     }
 
     function setToken(address _token) external onlyOwner {
@@ -108,8 +105,6 @@ contract RoomMarket is OwnableUpgradeable {
     }
 
     function createRoom(uint256 reward, uint256 limit, address player, address peer) external returns (uint256) {
-        nextRoomId += 1;
-
         Room storage room = rooms[nextRoomId];
         room.exists[player] = true;
         room.players.push(player);
@@ -119,9 +114,10 @@ contract RoomMarket is OwnableUpgradeable {
         room.site = limit - 1;
         room.status = RoomStatus.Opening;
 
-        emit CreateRoom(nextRoomId, room.game, room.reward, player, peer);
+        nextRoomId += 1;
+        emit CreateRoom(nextRoomId - 1, room.game, room.reward, player, peer);
 
-        return nextRoomId;
+        return nextRoomId - 1;
     }
 
     function joinRoom(uint256 roomId, address player, address peer) external returns (uint256) {

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 import './RoomMarket.sol';
 
-contract Demo is OwnableUpgradeable {
+contract Demo is Ownable {
     struct Room {
         address[] players;
     }
@@ -18,10 +18,8 @@ contract Demo is OwnableUpgradeable {
     /// waiting & running rooms
     mapping(uint256 => Room) private rooms;
 
-    constructor(address _roomMarket) {
+    constructor(address _roomMarket) Ownable(msg.sender) {
         roomMarket = _roomMarket;
-
-        __Ownable_init(msg.sender);
     }
 
     function setRoomMarket(address _roomMarket) external onlyOwner {
