@@ -21,6 +21,7 @@ struct CreateRoom {
     reward: U256,
     player: Address,
     peer: Address,
+    pk: H256,
 }
 
 #[derive(Clone, Debug, EthEvent)]
@@ -28,6 +29,7 @@ struct JoinRoom {
     room: U256,
     player: Address,
     peer: Address,
+    pk: H256,
 }
 
 #[derive(Clone, Debug, EthEvent)]
@@ -42,6 +44,7 @@ struct AcceptRoom {
     sequencer: Address,
     http: String,
     locked: U256,
+    params: Bytes,
 }
 
 #[derive(Clone, Debug, EthEvent)]
@@ -211,12 +214,19 @@ pub async fn running(
                     reward,
                     player,
                     peer,
+                    pk,
                 } = create;
                 info!("scan create: {} {} {} {}", room, game, reward, player);
 
                 match (parse_room(room), parse_peer(peer)) {
                     (Some(rid), Some(peer)) => {
-                        sender.send(ChainMessage::CreateRoom(rid, game, player, peer))?;
+                        sender.send(ChainMessage::CreateRoom(
+                            rid,
+                            game,
+                            player,
+                            peer,
+                            pk.to_fixed_bytes(),
+                        ))?;
                     }
                     _ => continue,
                 }
@@ -225,12 +235,22 @@ pub async fn running(
 
         if let Ok(joins) = joins_room {
             for join in joins {
-                let JoinRoom { room, player, peer } = join;
+                let JoinRoom {
+                    room,
+                    player,
+                    peer,
+                    pk,
+                } = join;
                 info!("scan join: {} {}", room, player);
 
                 match (parse_room(room), parse_peer(peer)) {
                     (Some(rid), Some(peer)) => {
-                        sender.send(ChainMessage::JoinRoom(rid, player, peer))?;
+                        sender.send(ChainMessage::JoinRoom(
+                            rid,
+                            player,
+                            peer,
+                            pk.to_fixed_bytes(),
+                        ))?;
                     }
                     _ => continue,
                 }
@@ -258,11 +278,12 @@ pub async fn running(
                     sequencer,
                     http,
                     locked,
+                    params,
                 } = accept;
                 info!("scan accept: {} {} {} {}", room, sequencer, http, locked);
                 match (parse_room(room), parse_peer(sequencer)) {
                     (Some(rid), Some(pid)) => {
-                        sender.send(ChainMessage::AcceptRoom(rid, pid, http))?;
+                        sender.send(ChainMessage::AcceptRoom(rid, pid, http, params.to_vec()))?;
                     }
                     _ => continue,
                 }

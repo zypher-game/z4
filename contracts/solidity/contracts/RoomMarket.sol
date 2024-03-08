@@ -22,6 +22,7 @@ contract RoomMarket is Ownable {
         mapping(address => bool) exists;
         address[] players;
         address[] peers;
+        bytes32[] pks;
         address game;
         uint256 reward;
         address sequencer;
@@ -55,10 +56,10 @@ contract RoomMarket is Ownable {
 
     event StakeSequencer(address sequencer, address game, string http, uint256 staking);
     event UnstakeSequencer(address sequencer, uint256 staking);
-    event CreateRoom(uint256 room, address game, uint256 reward, address player, address peer);
-    event JoinRoom(uint256 room, address player, address peer);
+    event CreateRoom(uint256 room, address game, uint256 reward, address player, address peer, bytes32 pk);
+    event JoinRoom(uint256 room, address player, address peer, bytes32 pk);
     event StartRoom(uint256 room, address game);
-    event AcceptRoom(uint256 room, address sequencer, string http, uint256 locked);
+    event AcceptRoom(uint256 room, address sequencer, string http, uint256 locked, bytes params);
     event OverRoom(uint256 room);
     event ClaimRoom(uint256 room);
 
@@ -104,23 +105,24 @@ contract RoomMarket is Ownable {
         emit UnstakeSequencer(msg.sender, sequencer.staking);
     }
 
-    function createRoom(uint256 reward, uint256 limit, address player, address peer) external returns (uint256) {
+    function createRoom(uint256 reward, uint256 limit, address player, address peer, bytes32 pk) external returns (uint256) {
         Room storage room = rooms[nextRoomId];
         room.exists[player] = true;
         room.players.push(player);
         room.peers.push(peer);
+        room.pks.push(pk);
         room.game = msg.sender;
         room.reward = reward;
         room.site = limit - 1;
         room.status = RoomStatus.Opening;
 
         nextRoomId += 1;
-        emit CreateRoom(nextRoomId - 1, room.game, room.reward, player, peer);
+        emit CreateRoom(nextRoomId - 1, room.game, room.reward, player, peer, pk);
 
         return nextRoomId - 1;
     }
 
-    function joinRoom(uint256 roomId, address player, address peer) external returns (uint256) {
+    function joinRoom(uint256 roomId, address player, address peer, bytes32 pk) external returns (uint256) {
         Room storage room = rooms[roomId];
         require(room.game == msg.sender, "RM04");
         require(room.status == RoomStatus.Opening, "RM02");
@@ -129,9 +131,10 @@ contract RoomMarket is Ownable {
         room.exists[player] = true;
         room.players.push(player);
         room.peers.push(peer);
+        room.pks.push(pk);
         room.site -= 1;
 
-        emit JoinRoom(roomId, player, peer);
+        emit JoinRoom(roomId, player, peer, pk);
 
         if (room.site == 0) {
             room.status = RoomStatus.Waiting;
@@ -150,7 +153,7 @@ contract RoomMarket is Ownable {
         emit StartRoom(roomId, room.game);
     }
 
-    function acceptRoom(uint256 roomId) external {
+    function acceptRoom(uint256 roomId, bytes calldata params) external {
         Room storage room = rooms[roomId];
         Sequencer storage sequencer = sequencers[msg.sender][room.game];
 
@@ -164,7 +167,7 @@ contract RoomMarket is Ownable {
 
         sequencer.staking -= lockAmount;
 
-        emit AcceptRoom(roomId, msg.sender, sequencer.http, lockAmount);
+        emit AcceptRoom(roomId, msg.sender, sequencer.http, lockAmount, params);
     }
 
     function overRoomWithZk(uint256 roomId, bytes calldata data, bytes calldata proof) external {

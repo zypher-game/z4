@@ -40,10 +40,17 @@ pub struct ShootHandler {
 impl Handler for ShootHandler {
     type Param = DefaultParams;
 
-    async fn create(peers: &[(Address, PeerId)]) -> (Self, Tasks<Self>) {
+    async fn accept(_peers: &[(Address, PeerId, [u8; 32])]) -> Vec<u8> {
+        vec![]
+    }
+
+    async fn create(
+        peers: &[(Address, PeerId, [u8; 32])],
+        _params: Vec<u8>,
+    ) -> (Self, Tasks<Self>) {
         let accounts = peers
             .iter()
-            .map(|(account, peer)| {
+            .map(|(account, peer, _pk)| {
                 (
                     *peer,
                     (

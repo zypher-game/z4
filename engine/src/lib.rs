@@ -95,6 +95,9 @@ pub type Tasks<H> = Vec<Box<dyn Task<H = H>>>;
 pub trait Handler: Send + Sized + 'static {
     type Param: Param;
 
+    /// accept params when submit to chain
+    async fn accept(peers: &[(Address, PeerId, [u8; 32])]) -> Vec<u8>;
+
     /// when player online
     async fn online(&mut self, _player: PeerId) -> Result<HandleResult<Self::Param>> {
         Ok(HandleResult::default())
@@ -106,7 +109,7 @@ pub trait Handler: Send + Sized + 'static {
     }
 
     /// create new room scan from chain
-    async fn create(peers: &[(Address, PeerId)]) -> (Self, Tasks<Self>);
+    async fn create(peers: &[(Address, PeerId, [u8; 32])], params: Vec<u8>) -> (Self, Tasks<Self>);
 
     /// handle message in a room
     async fn handle(

@@ -11,16 +11,6 @@
     "type": "constructor"
   },
   {
-    "inputs": [],
-    "name": "InvalidInitialization",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "NotInitializing",
-    "type": "error"
-  },
-  {
     "inputs": [
       {
         "internalType": "address",
@@ -41,19 +31,6 @@
     ],
     "name": "OwnableUnauthorizedAccount",
     "type": "error"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "version",
-        "type": "uint64"
-      }
-    ],
-    "name": "Initialized",
-    "type": "event"
   },
   {
     "anonymous": false,
@@ -93,6 +70,11 @@
         "internalType": "address",
         "name": "peer",
         "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "pk",
+        "type": "bytes32"
       }
     ],
     "name": "createRoom",
@@ -111,6 +93,11 @@
         "internalType": "address",
         "name": "peer",
         "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "pk",
+        "type": "bytes32"
       }
     ],
     "name": "joinRoom",

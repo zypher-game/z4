@@ -24,7 +24,7 @@ pub async fn listen(
 
     while let Some(msg) = receiver.recv().await {
         match msg {
-            PoolMessage::AcceptRoom(id) => {
+            PoolMessage::AcceptRoom(id, params) => {
                 let gas_price = market
                     .client_ref()
                     .get_gas_price()
@@ -33,7 +33,7 @@ pub async fn listen(
                 let extra_gas = gas_price + gas_price / U256::from(EXTRA_GAS);
 
                 match market
-                    .accept_room(U256::from(id))
+                    .accept_room(U256::from(id), params.into())
                     .gas_price(extra_gas)
                     .send()
                     .await

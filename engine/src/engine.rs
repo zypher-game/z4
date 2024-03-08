@@ -42,7 +42,14 @@ pub struct Engine<H: Handler> {
     /// rooms which is running
     rooms: HashMap<RoomId, Arc<Mutex<HandlerRoom<H>>>>,
     /// rooms which is waiting create, room => (game, players, sequencer)
-    pub pending: HashMap<RoomId, (GameId, Vec<(Address, PeerId)>, Option<(PeerId, String)>)>,
+    pub pending: HashMap<
+        RoomId,
+        (
+            GameId,
+            Vec<(Address, PeerId, [u8; 32])>,
+            Option<(PeerId, String)>,
+        ),
+    >,
     /// supported games and game's pending rooms
     pub games: HashMap<GameId, Vec<RoomId>>,
     /// connected peers
@@ -68,19 +75,26 @@ impl<H: Handler> Engine<H> {
     }
 
     /// create a pending room when scan from chain
-    pub fn create_pending(&mut self, id: RoomId, game: GameId, aid: Address, pid: PeerId) {
+    pub fn create_pending(
+        &mut self,
+        id: RoomId,
+        game: GameId,
+        aid: Address,
+        pid: PeerId,
+        pk: [u8; 32],
+    ) {
         if let Some(games) = self.games.get_mut(&game) {
             if !self.pending.contains_key(&id) {
-                self.pending.insert(id, (game, vec![(aid, pid)], None));
+                self.pending.insert(id, (game, vec![(aid, pid, pk)], None));
                 games.push(id);
             }
         }
     }
 
     /// join new player to the room
-    pub fn join_pending(&mut self, id: RoomId, aid: Address, pid: PeerId) {
+    pub fn join_pending(&mut self, id: RoomId, aid: Address, pid: PeerId, pk: [u8; 32]) {
         if let Some((_, peers, _)) = self.pending.get_mut(&id) {
-            peers.push((aid, pid));
+            peers.push((aid, pid, pk));
         }
     }
 
@@ -101,6 +115,7 @@ impl<H: Handler> Engine<H> {
         &mut self,
         id: RoomId,
         sequencer: (PeerId, String),
+        params: Vec<u8>,
         is_self: bool,
         send: Sender<SendMessage>,
         chain_send: UnboundedSender<ChainMessage>,
@@ -109,8 +124,8 @@ impl<H: Handler> Engine<H> {
             *seq = Some(sequencer);
 
             if is_self {
-                let (handler, tasks) = H::create(&peers).await;
-                let ids: Vec<PeerId> = peers.iter().map(|(_aid, pid)| *pid).collect();
+                let (handler, tasks) = H::create(&peers, params).await;
+                let ids: Vec<PeerId> = peers.iter().map(|(_aid, pid, _pk)| *pid).collect();
                 // running tasks
                 let (tx, rx) = channel(1);
                 let room = Arc::new(Mutex::new(HandlerRoom {
@@ -251,29 +266,31 @@ impl<H: Handler> Engine<H> {
                     ReceiveMessage::Own(..) => {}
                 },
                 Some(FutureMessage::Chain(message)) => match message {
-                    ChainMessage::CreateRoom(rid, game, player, pubkey) => {
+                    ChainMessage::CreateRoom(rid, game, player, peer, pk) => {
                         println!("NEW ROOM created !!!");
-                        self.create_pending(rid, game, player, pubkey);
+                        self.create_pending(rid, game, player, peer, pk);
                     }
-                    ChainMessage::JoinRoom(rid, player, pubkey) => {
-                        self.join_pending(rid, player, pubkey);
+                    ChainMessage::JoinRoom(rid, player, peer, pk) => {
+                        self.join_pending(rid, player, peer, pk);
                     }
                     ChainMessage::StartRoom(rid, game) => {
                         // send accept operation to chain
                         // check room is exist
-                        if self.contains_pending(&rid) {
-                            let _ = pool_send.send(PoolMessage::AcceptRoom(rid));
+                        if let Some((_, peers, _)) = self.pending.get(&rid) {
+                            let params = H::accept(peers).await;
+                            let _ = pool_send.send(PoolMessage::AcceptRoom(rid, params));
                         } else if self.games.contains_key(&game) {
                             // TODO fetch room from chain.
                         }
                     }
-                    ChainMessage::AcceptRoom(rid, sequencer, http) => {
+                    ChainMessage::AcceptRoom(rid, sequencer, http, params) => {
                         println!("Engine: start new room: {}", rid);
                         // if mine, create room
                         let is_own = sequencer == peer_addr;
                         self.start_room(
                             rid,
                             (sequencer, http),
+                            params,
                             is_own,
                             send.clone(),
                             chain_send.clone(),

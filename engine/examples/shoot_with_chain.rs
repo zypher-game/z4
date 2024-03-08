@@ -143,7 +143,12 @@ async fn create_room(
 
     let addr = client.address();
     let game = Demo::new(network.address("Demo").unwrap(), client);
-    game.create_room(addr).send().await.unwrap().await.unwrap();
+    game.create_room(addr, [0u8; 32])
+        .send()
+        .await
+        .unwrap()
+        .await
+        .unwrap();
 
     next_room.as_u64()
 }
@@ -155,7 +160,7 @@ async fn join_room(
 ) {
     let addr = client.address();
     let game = Demo::new(network.address("Demo").unwrap(), client);
-    game.join_room(U256::from(room), addr)
+    game.join_room(U256::from(room), addr, [0u8; 32])
         .send()
         .await
         .unwrap()

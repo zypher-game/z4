@@ -21,16 +21,6 @@
     "type": "constructor"
   },
   {
-    "inputs": [],
-    "name": "InvalidInitialization",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "NotInitializing",
-    "type": "error"
-  },
-  {
     "inputs": [
       {
         "internalType": "address",
@@ -78,6 +68,12 @@
         "internalType": "uint256",
         "name": "locked",
         "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "params",
+        "type": "bytes"
       }
     ],
     "name": "AcceptRoom",
@@ -128,22 +124,15 @@
         "internalType": "address",
         "name": "peer",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "pk",
+        "type": "bytes32"
       }
     ],
     "name": "CreateRoom",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "version",
-        "type": "uint64"
-      }
-    ],
-    "name": "Initialized",
     "type": "event"
   },
   {
@@ -166,6 +155,12 @@
         "internalType": "address",
         "name": "peer",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "pk",
+        "type": "bytes32"
       }
     ],
     "name": "JoinRoom",
@@ -278,6 +273,11 @@
         "internalType": "uint256",
         "name": "roomId",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes",
+        "name": "params",
+        "type": "bytes"
       }
     ],
     "name": "acceptRoom",
@@ -319,6 +319,11 @@
         "internalType": "address",
         "name": "peer",
         "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "pk",
+        "type": "bytes32"
       }
     ],
     "name": "createRoom",
@@ -372,6 +377,11 @@
         "internalType": "address",
         "name": "peer",
         "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "pk",
+        "type": "bytes32"
       }
     ],
     "name": "joinRoom",
