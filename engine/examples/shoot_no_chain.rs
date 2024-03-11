@@ -41,17 +41,22 @@ async fn main() {
     let game = GAME.parse().unwrap();
 
     let mut engine = Engine::<ShootHandler>::init(config);
-    engine.create_pending(ROOM, game, H160(id1.0), id1);
-    engine.join_pending(ROOM, H160(id2.0), id2);
-    engine.join_pending(ROOM, H160(id3.0), id3);
-    engine.join_pending(ROOM, H160(id4.0), id4);
+    engine.create_pending(ROOM, game, H160(id1.0), id1, [0u8; 32]);
+    engine.join_pending(ROOM, H160(id2.0), id2, [0u8; 32]);
+    engine.join_pending(ROOM, H160(id3.0), id3, [0u8; 32]);
+    engine.join_pending(ROOM, H160(id4.0), id4, [0u8; 32]);
 
     let (chain_send, chain_recv) = chain_channel();
     let chain_send1 = chain_send.clone();
     tokio::spawn(engine.run_with_channel(chain_send, chain_recv));
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        chain_send1.send(ChainMessage::AcceptRoom(ROOM, sid, "".to_owned()))
+        chain_send1.send(ChainMessage::AcceptRoom(
+            ROOM,
+            sid,
+            "".to_owned(),
+            vec![0u8; 32],
+        ))
     });
 
     let _ = tokio::join! {

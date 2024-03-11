@@ -47,6 +47,7 @@ impl Handler for ShootHandler {
     async fn create(
         peers: &[(Address, PeerId, [u8; 32])],
         _params: Vec<u8>,
+        _rid: RoomId,
     ) -> (Self, Tasks<Self>) {
         let accounts = peers
             .iter()

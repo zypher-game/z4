@@ -124,7 +124,7 @@ impl<H: Handler> Engine<H> {
             *seq = Some(sequencer);
 
             if is_self {
-                let (handler, tasks) = H::create(&peers, params).await;
+                let (handler, tasks) = H::create(&peers, params, id).await;
                 let ids: Vec<PeerId> = peers.iter().map(|(_aid, pid, _pk)| *pid).collect();
                 // running tasks
                 let (tx, rx) = channel(1);
