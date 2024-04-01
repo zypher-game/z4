@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use zplonk::errors::ZplonkError;
+use uzkge::errors::UzkgeError;
 
 use crate::PeerId;
 
@@ -22,7 +22,7 @@ pub enum Error {
     /// Anyhow error
     Anyhow(String),
     /// ZK error,
-    Zk(ZplonkError),
+    Zk(UzkgeError),
 }
 
 pub use ethers::prelude::{Address, H160};
@@ -97,8 +97,8 @@ impl From<ethers::prelude::WalletError> for Error {
     }
 }
 
-impl From<ZplonkError> for Error {
-    fn from(err: ZplonkError) -> Error {
+impl From<UzkgeError> for Error {
+    fn from(err: UzkgeError) -> Error {
         Error::Zk(err)
     }
 }

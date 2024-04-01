@@ -11,10 +11,10 @@ use z4_engine::{
     Address, DefaultParams, Error, HandleResult, Handler, Peer, PeerId, PeerKey, Result, RoomId,
     Tasks,
 };
-use zplonk::{
+use uzkge::{
     gen_params::{load_lagrange_params, load_srs_params, ProverParams, VerifierParams},
     poly_commit::kzg_poly_commitment::KZGCommitmentSchemeBN254,
-    turboplonk::{
+    plonk::{
         constraint_system::{ConstraintSystem, TurboCS, VarIndex},
         indexer::{indexer_with_lagrange, PlonkProof},
         prover::prover_with_lagrange,
