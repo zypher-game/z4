@@ -87,7 +87,8 @@ impl<H: Handler> Engine<H> {
     ) {
         if let Some(games) = self.games.get_mut(&game) {
             if !self.pending.contains_key(&id) {
-                self.pending.insert(id, (game, subgame, vec![(aid, pid, pk)], None));
+                self.pending
+                    .insert(id, (game, subgame, vec![(aid, pid, pk)], None));
                 games.push(id);
             }
         }
@@ -126,19 +127,22 @@ impl<H: Handler> Engine<H> {
             *seq = Some(sequencer);
 
             if is_self {
-                let (handler, tasks) = H::create(id, &subgame, &peers, params).await;
-                let ids: Vec<PeerId> = peers.iter().map(|(_aid, pid, _pk)| *pid).collect();
-                // running tasks
-                let (tx, rx) = channel(1);
-                let room = Arc::new(Mutex::new(HandlerRoom {
-                    handler,
-                    game: *game,
-                    tasks: tx,
-                    room: Room::new(id, &ids),
-                }));
+                if let Ok((handler, tasks)) = H::create(id, &subgame, &peers, params).await {
+                    let ids: Vec<PeerId> = peers.iter().map(|(_aid, pid, _pk)| *pid).collect();
+                    // running tasks
+                    let (tx, rx) = channel(1);
+                    let room = Arc::new(Mutex::new(HandlerRoom {
+                        handler,
+                        game: *game,
+                        tasks: tx,
+                        room: Room::new(id, &ids),
+                    }));
 
-                tokio::spawn(handle_tasks(id, room.clone(), send, chain_send, rx, tasks));
-                self.rooms.insert(id, room);
+                    tokio::spawn(handle_tasks(id, room.clone(), send, chain_send, rx, tasks));
+                    self.rooms.insert(id, room);
+                } else {
+                    // TODO report to chain, cannot create room, and restore room to waiting
+                }
             }
         }
     }
@@ -278,9 +282,12 @@ impl<H: Handler> Engine<H> {
                     ChainMessage::StartRoom(rid, game) => {
                         // send accept operation to chain
                         // check room is exist
-                        if let Some((_, subgame, peers, _)) = self.pending.get(&rid) {
-                            let params = H::accept(subgame, peers).await;
-                            let _ = pool_send.send(PoolMessage::AcceptRoom(rid, params));
+                        if let Some((game, subgame, peers, _)) = self.pending.get(&rid) {
+                            if let Ok(params) = H::accept(subgame, peers).await {
+                                let _ = pool_send.send(PoolMessage::AcceptRoom(rid, params));
+                            } else {
+                                warn!("Accept failure or not, game: {:?} - {}", game, subgame);
+                            }
                         } else if self.games.contains_key(&game) {
                             // TODO fetch room from chain.
                         }

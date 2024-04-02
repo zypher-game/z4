@@ -9,6 +9,11 @@ struct Shoot {
     players: HashMap<PlayerId, Player>
 }
 
+#[constructor]
+fn constructor() -> Shoot {
+    //
+}
+
 #[online]
 fn online(shoot: &mut Shoot, player: PlayerId) -> Result<HandleResult> {
     //

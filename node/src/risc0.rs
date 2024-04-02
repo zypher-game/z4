@@ -1,5 +1,5 @@
 use risc0_zkvm::{Executor as RiscExecutor, ExecutorEnv, LocalProver};
-use z4_engine::{DefaultParams, Error, HandleResult};
+use z4_engine::{DefaultParams, Error, HandleResult, Result};
 
 use crate::Executor;
 
@@ -15,7 +15,7 @@ impl Executor for Risc0 {
         code: &[u8],
         storage: &[u8],
         params: &DefaultParams,
-    ) -> Result<(Vec<u8>, HandleResult<DefaultParams>), Error> {
+    ) -> Result<(Vec<u8>, HandleResult<DefaultParams>)> {
         // TODO limit cycles
 
         let env = ExecutorEnv::builder()

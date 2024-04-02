@@ -41,7 +41,10 @@ pub async fn handle_rpc<H: Handler>(
             .parse()
             .map_err(|_| Error::Params)?;
         let subgame: Option<SubGame> = if p.len() == 2 {
-            Some(SubGame::from_dec_str(p[1].as_str().ok_or(Error::Params)?).map_err(|_| Error::Params)?)
+            Some(
+                SubGame::from_dec_str(p[1].as_str().ok_or(Error::Params)?)
+                    .map_err(|_| Error::Params)?,
+            )
         } else {
             None
         };

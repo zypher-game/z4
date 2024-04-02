@@ -1,7 +1,8 @@
+mod game;
 mod handler;
 mod risc0;
 
-use z4_engine::{Config, DefaultParams, Engine, Error, HandleResult};
+use z4_engine::{Config, DefaultParams, Engine, HandleResult, Result};
 
 #[tokio::main]
 async fn main() {
@@ -50,5 +51,5 @@ trait Executor: 'static + Send + Sized {
         code: &[u8],
         storage: &[u8],
         params: &DefaultParams,
-    ) -> Result<(Vec<u8>, HandleResult<DefaultParams>), Error>;
+    ) -> Result<(Vec<u8>, HandleResult<DefaultParams>)>;
 }

@@ -21,13 +21,13 @@ pub use contracts::*;
 pub use engine::Engine;
 pub use key::*;
 pub use scan::chain_channel;
+use serde::{Deserialize, Serialize};
 pub use serde_json::{json, Value};
 pub use tdn::{
     prelude::{GroupId, Peer, PeerId, PeerKey, SendType},
     types::rpc::rpc_response,
 };
 pub use types::*;
-use serde::{Serialize, Deserialize};
 
 /// The result when after handling the message or task.
 #[derive(Default, Serialize, Deserialize)]
@@ -97,7 +97,7 @@ pub trait Handler: Send + Sized + 'static {
     type Param: Param;
 
     /// accept params when submit to chain
-    async fn accept(subgame: &SubGame, peers: &[(Address, PeerId, [u8; 32])]) -> Vec<u8>;
+    async fn accept(subgame: &SubGame, peers: &[(Address, PeerId, [u8; 32])]) -> Result<Vec<u8>>;
 
     /// when player online
     async fn online(&mut self, _player: PeerId) -> Result<HandleResult<Self::Param>> {
@@ -115,7 +115,7 @@ pub trait Handler: Send + Sized + 'static {
         subgame: &SubGame,
         peers: &[(Address, PeerId, [u8; 32])],
         params: Vec<u8>,
-    ) -> (Self, Tasks<Self>);
+    ) -> Result<(Self, Tasks<Self>)>;
 
     /// handle message in a room
     async fn handle(
