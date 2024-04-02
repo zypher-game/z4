@@ -1,10 +1,6 @@
-use ark_ed_on_bn254::{EdwardsAffine, EdwardsProjective, Fr};
-use ark_ff::One;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate};
-use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use std::collections::HashMap;
 use z4_engine::{
-    Address, DefaultParams, Error, HandleResult, Handler, PeerId, Result, RoomId, Tasks, SubGame,
+    Address, DefaultParams, Error, HandleResult, Handler, PeerId, Result, RoomId, SubGame, Tasks,
 };
 
 use crate::Executor;
@@ -18,14 +14,14 @@ pub struct Z4Handler<E: Executor> {
     operations: Vec<DefaultParams>,
 }
 
-impl Z4Handler {
+impl<E: Executor> Z4Handler<E> {
     fn prove(&self) {
         todo!()
     }
 }
 
 #[async_trait::async_trait]
-impl Handler for Z4Handler {
+impl<E: Executor> Handler for Z4Handler<E> {
     type Param = DefaultParams;
 
     async fn accept(subgame: &SubGame, peers: &[(Address, PeerId, [u8; 32])]) -> Vec<u8> {

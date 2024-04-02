@@ -27,9 +27,10 @@ pub use tdn::{
     types::rpc::rpc_response,
 };
 pub use types::*;
+use serde::{Serialize, Deserialize};
 
 /// The result when after handling the message or task.
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct HandleResult<P: Param> {
     /// need broadcast the msg in the room
     all: Vec<(String, P)>,
@@ -96,7 +97,7 @@ pub trait Handler: Send + Sized + 'static {
     type Param: Param;
 
     /// accept params when submit to chain
-    async fn accept(subgame: SubGame, peers: &[(Address, PeerId, [u8; 32])]) -> Vec<u8>;
+    async fn accept(subgame: &SubGame, peers: &[(Address, PeerId, [u8; 32])]) -> Vec<u8>;
 
     /// when player online
     async fn online(&mut self, _player: PeerId) -> Result<HandleResult<Self::Param>> {
@@ -111,7 +112,7 @@ pub trait Handler: Send + Sized + 'static {
     /// create new room scan from chain
     async fn create(
         rid: RoomId,
-        subgame: SubGame,
+        subgame: &SubGame,
         peers: &[(Address, PeerId, [u8; 32])],
         params: Vec<u8>,
     ) -> (Self, Tasks<Self>);
@@ -126,7 +127,7 @@ pub trait Handler: Send + Sized + 'static {
 }
 
 /// Default vector json values for Param
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct DefaultParams(pub Vec<Value>);
 
 impl Param for DefaultParams {

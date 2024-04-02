@@ -1,7 +1,7 @@
-mod risc0;
 mod handler;
+mod risc0;
 
-use z4_engine::{Config, Engine, Error, DefaultParams};
+use z4_engine::{Config, DefaultParams, Engine, Error, HandleResult};
 
 #[tokio::main]
 async fn main() {
@@ -39,11 +39,16 @@ async fn main() {
         .expect("Server down !!!");
 }
 
-trait Executor {
+trait Executor: 'static + Send + Sized {
     /// create an executor
     fn create() -> Self;
 
     /// execute program with code, storage, and params,
     /// result is new storage and z4 HandleResult.
-    fn execute(&self, code: &[u8], storage: &[u8], params: DefaultParams) -> -> Result<(Vec<u8>, HandleResult), Error>;
+    fn execute(
+        &self,
+        code: &[u8],
+        storage: &[u8],
+        params: &DefaultParams,
+    ) -> Result<(Vec<u8>, HandleResult<DefaultParams>), Error>;
 }

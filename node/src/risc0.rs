@@ -1,29 +1,34 @@
-use z4_engine::{DefaultParams, HandleResult};
+use risc0_zkvm::{Executor as RiscExecutor, ExecutorEnv, LocalProver};
+use z4_engine::{DefaultParams, Error, HandleResult};
 
-pub use risc0_vm::LocalProver as Risc0;
+use crate::Executor;
+
+pub struct Risc0(LocalProver);
 
 impl Executor for Risc0 {
     fn create() -> Self {
-        LocalProver::new("local")
+        Risc0(LocalProver::new("local"))
     }
 
     fn execute(
         &self,
         code: &[u8],
-        storage: Vec<u8>,
-        params: DefaultParams,
-    ) -> Result<(Vec<u8>, HandleResult), Error> {
+        storage: &[u8],
+        params: &DefaultParams,
+    ) -> Result<(Vec<u8>, HandleResult<DefaultParams>), Error> {
         // TODO limit cycles
 
         let env = ExecutorEnv::builder()
-            .write(storage)
+            .write(&hex::encode(storage))
             .unwrap()
             .write(params)
             .unwrap()
             .build()
             .unwrap();
 
-        let info = self.execute(env, code).unwrap();
-        info.journal.decode()
+        let info = self.0.execute(env, code).unwrap();
+        // Ok(info.journal.decode()?)
+
+        todo!()
     }
 }
