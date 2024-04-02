@@ -46,6 +46,7 @@ pub struct Engine<H: Handler> {
         RoomId,
         (
             GameId,
+            SubGame,
             Vec<(Address, PeerId, [u8; 32])>,
             Option<(PeerId, String)>,
         ),
@@ -79,13 +80,14 @@ impl<H: Handler> Engine<H> {
         &mut self,
         id: RoomId,
         game: GameId,
+        subgame: SubGame,
         aid: Address,
         pid: PeerId,
         pk: [u8; 32],
     ) {
         if let Some(games) = self.games.get_mut(&game) {
             if !self.pending.contains_key(&id) {
-                self.pending.insert(id, (game, vec![(aid, pid, pk)], None));
+                self.pending.insert(id, (game, subgame, vec![(aid, pid, pk)], None));
                 games.push(id);
             }
         }
@@ -93,14 +95,14 @@ impl<H: Handler> Engine<H> {
 
     /// join new player to the room
     pub fn join_pending(&mut self, id: RoomId, aid: Address, pid: PeerId, pk: [u8; 32]) {
-        if let Some((_, peers, _)) = self.pending.get_mut(&id) {
+        if let Some((_, _, peers, _)) = self.pending.get_mut(&id) {
             peers.push((aid, pid, pk));
         }
     }
 
     /// create a pending room when scan from chain
     pub fn del_pending(&mut self, id: RoomId) {
-        if let Some((game, _, _)) = self.pending.remove(&id) {
+        if let Some((game, _, _, _)) = self.pending.remove(&id) {
             self.games.get_mut(&game).map(|v| vec_remove_item(v, &id));
         }
     }
@@ -120,11 +122,11 @@ impl<H: Handler> Engine<H> {
         send: Sender<SendMessage>,
         chain_send: UnboundedSender<ChainMessage>,
     ) {
-        if let Some((game, peers, seq)) = self.pending.get_mut(&id) {
+        if let Some((game, subgame, peers, seq)) = self.pending.get_mut(&id) {
             *seq = Some(sequencer);
 
             if is_self {
-                let (handler, tasks) = H::create(&peers, params, id).await;
+                let (handler, tasks) = H::create(id, &subgame, &peers, params).await;
                 let ids: Vec<PeerId> = peers.iter().map(|(_aid, pid, _pk)| *pid).collect();
                 // running tasks
                 let (tx, rx) = channel(1);
@@ -266,9 +268,9 @@ impl<H: Handler> Engine<H> {
                     ReceiveMessage::Own(..) => {}
                 },
                 Some(FutureMessage::Chain(message)) => match message {
-                    ChainMessage::CreateRoom(rid, game, player, peer, pk) => {
+                    ChainMessage::CreateRoom(rid, game, subgame, player, peer, pk) => {
                         println!("NEW ROOM created !!!");
-                        self.create_pending(rid, game, player, peer, pk);
+                        self.create_pending(rid, game, subgame, player, peer, pk);
                     }
                     ChainMessage::JoinRoom(rid, player, peer, pk) => {
                         self.join_pending(rid, player, peer, pk);
@@ -276,8 +278,8 @@ impl<H: Handler> Engine<H> {
                     ChainMessage::StartRoom(rid, game) => {
                         // send accept operation to chain
                         // check room is exist
-                        if let Some((_, peers, _)) = self.pending.get(&rid) {
-                            let params = H::accept(peers).await;
+                        if let Some((_, subgame, peers, _)) = self.pending.get(&rid) {
+                            let params = H::accept(subgame, peers).await;
                             let _ = pool_send.send(PoolMessage::AcceptRoom(rid, params));
                         } else if self.games.contains_key(&game) {
                             // TODO fetch room from chain.

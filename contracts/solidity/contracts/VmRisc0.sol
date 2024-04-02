@@ -78,7 +78,7 @@ contract VmRisc0 is Ownable {
         // TODO reward
         uint256 rewards = 0;
         Game storage game = games[gameId];
-        uint256 roomId = RoomMarket(roomMarket).createRoom(rewards, game.playerLimit, msg.sender, peer, pk);
+        uint256 roomId = RoomMarket(roomMarket).createRoom(gameId, rewards, game.playerLimit, msg.sender, peer, pk);
         rooms[roomId].players.push(msg.sender);
     }
 

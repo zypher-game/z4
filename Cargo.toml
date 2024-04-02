@@ -13,4 +13,5 @@ ark-poly = { git = "https://github.com/arkworks-rs/algebra" }
 ark-serialize = { git = "https://github.com/arkworks-rs/algebra" }
 ark-bn254 = { git = "https://github.com/arkworks-rs/algebra" }
 ark-ed-on-bn254 = { git = "https://github.com/arkworks-rs/algebra" }
+ark-groth16 = { git = "https://github.com/arkworks-rs/groth16" }
 uzkge = { git = "https://github.com/zypher-game/uzkge" }

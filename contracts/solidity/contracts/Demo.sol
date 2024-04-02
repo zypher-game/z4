@@ -32,7 +32,7 @@ contract Demo is Ownable {
 
     function createRoom(address peer, bytes32 pk) external {
         // TODO reward
-        uint256 roomId = RoomMarket(roomMarket).createRoom(0, playerLimit, msg.sender, peer, pk);
+        uint256 roomId = RoomMarket(roomMarket).createRoom(0, 0, playerLimit, msg.sender, peer, pk);
         rooms[roomId].players.push(msg.sender);
     }
 

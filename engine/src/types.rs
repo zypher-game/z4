@@ -25,13 +25,15 @@ pub enum Error {
     Zk(UzkgeError),
 }
 
-pub use ethers::prelude::{Address, H160};
+pub use ethers::prelude::{Address, H160, U256};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
 pub type RoomId = u64;
 
 pub type GameId = Address;
+
+pub type SubGame = U256;
 
 pub const INIT_ROOM_MARKET_GROUP: RoomId = 100000;
 
@@ -46,7 +48,7 @@ pub struct P2pMessage<'a> {
 }
 
 pub enum ChainMessage {
-    CreateRoom(RoomId, GameId, Address, PeerId, [u8; 32]),
+    CreateRoom(RoomId, GameId, SubGame, Address, PeerId, [u8; 32]),
     JoinRoom(RoomId, Address, PeerId, [u8; 32]),
     StartRoom(RoomId, Address),
     AcceptRoom(RoomId, PeerId, String, Vec<u8>),

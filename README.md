@@ -1,4 +1,4 @@
-# Z4 zk-sub layer4 engine
+# Z4 engine
 
 Provides a zk engine for games like "multiplayer room game (players enter a room through matching)".
 

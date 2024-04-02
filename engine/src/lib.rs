@@ -96,7 +96,7 @@ pub trait Handler: Send + Sized + 'static {
     type Param: Param;
 
     /// accept params when submit to chain
-    async fn accept(peers: &[(Address, PeerId, [u8; 32])]) -> Vec<u8>;
+    async fn accept(subgame: SubGame, peers: &[(Address, PeerId, [u8; 32])]) -> Vec<u8>;
 
     /// when player online
     async fn online(&mut self, _player: PeerId) -> Result<HandleResult<Self::Param>> {
@@ -110,9 +110,10 @@ pub trait Handler: Send + Sized + 'static {
 
     /// create new room scan from chain
     async fn create(
+        rid: RoomId,
+        subgame: SubGame,
         peers: &[(Address, PeerId, [u8; 32])],
         params: Vec<u8>,
-        rid: RoomId,
     ) -> (Self, Tasks<Self>);
 
     /// handle message in a room

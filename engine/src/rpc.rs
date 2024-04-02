@@ -9,7 +9,7 @@ use tokio::sync::mpsc::{Sender, UnboundedSender};
 use crate::{
     engine::{handle_result, Engine},
     room::ConnectType,
-    types::{address_hex, ChainMessage, Error, Result, INIT_ROOM_MARKET_GROUP},
+    types::{address_hex, ChainMessage, Error, Result, SubGame, INIT_ROOM_MARKET_GROUP},
     Handler, Param,
 };
 
@@ -40,10 +40,21 @@ pub async fn handle_rpc<H: Handler>(
             .ok_or(Error::Params)?
             .parse()
             .map_err(|_| Error::Params)?;
+        let subgame: Option<SubGame> = if p.len() == 2 {
+            Some(SubGame::from_dec_str(p[1].as_str().ok_or(Error::Params)?).map_err(|_| Error::Params)?)
+        } else {
+            None
+        };
         let mut pendings = vec![];
         if let Some(rooms) = engine.games.get(&game) {
             for room in rooms {
-                if let Some((_, ps, seq)) = engine.pending.get(room) {
+                if let Some((_, sg, ps, seq)) = engine.pending.get(room) {
+                    if let Some(sg1) = &subgame {
+                        if sg1 != sg {
+                            continue;
+                        }
+                    }
+
                     let players: Vec<String> = ps.iter().map(|(p, _, _)| address_hex(p)).collect();
                     if let Some((seq, http)) = seq {
                         pendings.push(json!({

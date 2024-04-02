@@ -18,6 +18,7 @@ const DELAY: u64 = 1;
 struct CreateRoom {
     room: U256,
     game: Address,
+    subgame: U256,
     reward: U256,
     player: Address,
     peer: Address,
@@ -211,6 +212,7 @@ pub async fn running(
                 let CreateRoom {
                     room,
                     game,
+                    subgame,
                     reward,
                     player,
                     peer,
@@ -223,6 +225,7 @@ pub async fn running(
                         sender.send(ChainMessage::CreateRoom(
                             rid,
                             game,
+                            subgame,
                             player,
                             peer,
                             pk.to_fixed_bytes(),

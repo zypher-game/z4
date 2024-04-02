@@ -56,7 +56,7 @@ contract RoomMarket is Ownable {
 
     event StakeSequencer(address sequencer, address game, string http, uint256 staking);
     event UnstakeSequencer(address sequencer, uint256 staking);
-    event CreateRoom(uint256 room, address game, uint256 reward, address player, address peer, bytes32 pk);
+    event CreateRoom(uint256 room, address game, uint256 subgame, uint256 reward, address player, address peer, bytes32 pk);
     event JoinRoom(uint256 room, address player, address peer, bytes32 pk);
     event StartRoom(uint256 room, address game);
     event AcceptRoom(uint256 room, address sequencer, string http, uint256 locked, bytes params);
@@ -105,7 +105,7 @@ contract RoomMarket is Ownable {
         emit UnstakeSequencer(msg.sender, sequencer.staking);
     }
 
-    function createRoom(uint256 reward, uint256 limit, address player, address peer, bytes32 pk) external returns (uint256) {
+    function createRoom(uint256 subgame, uint256 reward, uint256 limit, address player, address peer, bytes32 pk) external returns (uint256) {
         Room storage room = rooms[nextRoomId];
         room.exists[player] = true;
         room.players.push(player);
@@ -117,7 +117,7 @@ contract RoomMarket is Ownable {
         room.status = RoomStatus.Opening;
 
         nextRoomId += 1;
-        emit CreateRoom(nextRoomId - 1, room.game, room.reward, player, peer, pk);
+        emit CreateRoom(nextRoomId - 1, room.game, subgame, room.reward, player, peer, pk);
 
         return nextRoomId - 1;
     }
