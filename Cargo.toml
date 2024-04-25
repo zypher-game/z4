@@ -3,6 +3,7 @@ members = [
   "engine",
   "node",
   "types",
+  "derive",
 ]
 resolver = "2"
 
