@@ -1,6 +1,7 @@
 {
   "name": "z4-contracts",
-  "version": "1.0.0",
+  "version": "0.1.0",
+  "license": "GPL-3.0-only",
   "scripts": {
     "build": "hardhat compile",
     "test": "hardhat test",

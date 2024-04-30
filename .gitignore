@@ -4,3 +4,4 @@ target
 /node/.tdn
 /Cargo.lock
 .DS_Store
+.env
