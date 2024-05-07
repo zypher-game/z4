@@ -28,18 +28,13 @@ async function deployContract(name, params=[]) {
 }
 
 async function deploy() {
-  // DEMO for test
+  // Zypher Game Coin & SimpleGame
   const token = await deployContract("Token", [1000000]);
-
-  const roomMarket = await deployContract("RoomMarket", [token, 10000, 100]);
-
-
-  const demo = await deployContract("Demo", [roomMarket]);
+  const game = await deployContract("SimpleGame", [token, 10000, 100, 4, 10000]);
 
   const addresses = {
     Token: token,
-    RoomMarket: roomMarket,
-    Demo: demo,
+    Game: game,
   };
   const filename = `../../public/${network.name}.json`;
   writeFile(
