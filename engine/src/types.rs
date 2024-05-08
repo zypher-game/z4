@@ -33,7 +33,7 @@ pub type RoomId = u64;
 
 pub type GameId = Address;
 
-pub const INIT_ROOM_MARKET_GROUP: RoomId = 100000;
+pub const Z4_ROOM_MARKET_GROUP: RoomId = 4;
 
 pub fn address_hex(a: &Address) -> String {
     PeerId(a.to_fixed_bytes()).to_hex()

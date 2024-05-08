@@ -4,7 +4,7 @@ use tdn::prelude::{Config as TdnConfig, PeerKey};
 
 use crate::{
     contracts::{Network, NetworkConfig, RoomMarket, Token},
-    types::INIT_ROOM_MARKET_GROUP,
+    types::Z4_ROOM_MARKET_GROUP,
 };
 
 /// config of engine
@@ -41,7 +41,7 @@ impl Config {
         };
         config.rpc_http = Some(format!("0.0.0.0:{}", self.http_port).parse().unwrap());
         config.group_ids = self.groups.clone();
-        config.group_ids.push(INIT_ROOM_MARKET_GROUP);
+        config.group_ids.push(Z4_ROOM_MARKET_GROUP);
 
         // TODO boostrap seed
 

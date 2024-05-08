@@ -9,7 +9,7 @@ use tokio::sync::mpsc::{Sender, UnboundedSender};
 use crate::{
     engine::{handle_result, Engine},
     room::ConnectType,
-    types::{address_hex, ChainMessage, Error, Result, INIT_ROOM_MARKET_GROUP},
+    types::{address_hex, ChainMessage, Error, Result, Z4_ROOM_MARKET_GROUP},
     Handler, Param,
 };
 
@@ -29,7 +29,7 @@ pub async fn handle_rpc<H: Handler>(
     let params = params["params"].take();
 
     // inner rpc method for query all pending room for a game
-    if &method == "room_market" && gid == INIT_ROOM_MARKET_GROUP {
+    if &method == "room_market" && gid == Z4_ROOM_MARKET_GROUP {
         let p = params.as_array().ok_or(Error::Params)?;
 
         if p.is_empty() {
