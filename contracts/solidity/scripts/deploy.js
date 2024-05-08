@@ -35,7 +35,7 @@ async function deploy() {
   const addresses = {
     Token: token,
     RoomMarket: game,
-    Game: game,
+    SimpleGame: game,
   };
   const filename = `../../public/${network.name}.json`;
   writeFile(

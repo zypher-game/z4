@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use tdn::types::primitives::vec_remove_item;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use z4_engine::{
+    simple_game_result,
     json,
     request::{message_channel, run_p2p_channel, run_ws_channel, ChannelMessage},
     Address, DefaultParams, Error, HandleResult, Handler, Peer, PeerId, PeerKey, Result, RoomId,
@@ -169,7 +170,8 @@ impl Handler for ShootHandler {
 
                     // TODO results serialize to bytes
                     let proof_bytes = bincode::serialize(&proof).unwrap();
-                    result.over(vec![], proof_bytes);
+                    let rank = simple_game_result(&players);
+                    result.over(rank, proof_bytes);
                 }
 
                 return Ok(result);

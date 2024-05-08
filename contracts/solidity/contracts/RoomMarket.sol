@@ -47,7 +47,7 @@ abstract contract RoomMarket is Ownable {
     uint256 public playerRoomLock;
 
     /// next room id, start from 100000
-    uint256 public startRoomId;
+    uint256 public nextRoomId;
 
     /// player number in every room
     uint256 public playerLimit;
@@ -72,7 +72,7 @@ abstract contract RoomMarket is Ownable {
         minStaking = _minStaking;
         playerRoomLock = _playerRoomLock;
         playerLimit = _playerLimit;
-        startRoomId = _startRoomId;
+        nextRoomId = _startRoomId;
     }
 
     function setToken(address _token) external onlyOwner {
@@ -118,7 +118,7 @@ abstract contract RoomMarket is Ownable {
     function createRoom(uint256 ticket, address player, address peer, bytes32 pk) external returns (uint256) {
         // TODO Transfer ticket to contract
 
-        Room storage room = rooms[startRoomId];
+        Room storage room = rooms[nextRoomId];
         room.exists[player] = true;
         room.players.push(player);
         room.peers.push(peer);
@@ -129,10 +129,10 @@ abstract contract RoomMarket is Ownable {
         room.site = playerLimit - 1;
         room.status = RoomStatus.Opening;
 
-        startRoomId += 1;
-        emit CreateRoom(startRoomId - 1, address(this), room.reward, player, peer, pk);
+        nextRoomId += 1;
+        emit CreateRoom(nextRoomId - 1, address(this), room.reward, player, peer, pk);
 
-        return startRoomId - 1;
+        return nextRoomId - 1;
     }
 
     function joinRoom(uint256 roomId, address player, address peer, bytes32 pk) external returns (uint256) {

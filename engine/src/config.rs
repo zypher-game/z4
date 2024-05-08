@@ -1,4 +1,4 @@
-use ethers::prelude::{Address, Http, LocalWallet, Provider, SignerMiddleware, H160, U256};
+use ethers::prelude::{Http, LocalWallet, Provider, SignerMiddleware, H160, U256};
 use std::{path::PathBuf, sync::Arc};
 use tdn::prelude::{Config as TdnConfig, PeerKey};
 
@@ -96,28 +96,25 @@ impl Config {
             let contract = RoomMarket::new(market_address, signer_provider.clone());
             let token = Token::new(token_address, signer_provider.clone());
 
+            // TODO check staking is enough
+
             let amount = contract.min_staking().await.unwrap() * U256::from(1000000);
-            for game in &self.games {
-                let addr = game.parse::<Address>().unwrap();
-                if true {
-                    match token.approve(market_address, amount).send().await {
-                        Ok(pending) => {
-                            if let Ok(_receipt) = pending.await {
-                                let _ = contract
-                                    .stake_sequencer(addr, self.http.clone(), amount)
-                                    .send()
-                                    .await;
-                            } else {
-                                error!("Failed to approve token");
-                            }
-                        }
-                        Err(err) => {
-                            if let Some(rcode) = err.decode_revert::<String>() {
-                                error!("{}", rcode);
-                            } else {
-                                error!("{}", err);
-                            }
-                        }
+            match token.approve(market_address, amount).send().await {
+                Ok(pending) => {
+                    if let Ok(_receipt) = pending.await {
+                        let _ = contract
+                            .stake_sequencer(self.http.clone(), amount)
+                            .send()
+                            .await;
+                    } else {
+                        error!("Failed to approve token");
+                    }
+                }
+                Err(err) => {
+                    if let Some(rcode) = err.decode_revert::<String>() {
+                        error!("{}", rcode);
+                    } else {
+                        error!("{}", err);
                     }
                 }
             }

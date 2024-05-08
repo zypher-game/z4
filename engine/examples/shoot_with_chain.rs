@@ -119,15 +119,14 @@ async fn register_sequencer(
 ) {
     let stake = U256::from(10000);
     let addr = client.address();
-    let game = H160(network.address("SimpleGame").unwrap());
     let market = RoomMarket::new(network.address("RoomMarket").unwrap(), client.clone());
 
-    let result1 = market.sequencers(addr, game).await.unwrap();
+    let result1 = market.sequencers(addr).await.unwrap();
     if result1.1 == U256::from(0) {
         let token = Token::new(network.address("Token").unwrap(), client);
         token.approve(market.address(), stake).send().await.unwrap();
         market
-            .stake_sequencer(game, "".to_owned(), stake)
+            .stake_sequencer("".to_owned(), stake)
             .send()
             .await
             .unwrap();
@@ -143,7 +142,7 @@ async fn create_room(
 
     let addr = client.address();
     let game = SimpleGame::new(network.address("SimpleGame").unwrap(), client);
-    game.create_room(addr, [0u8; 32])
+    game.create_room(U256::zero(), addr, addr, [0u8; 32])
         .send()
         .await
         .unwrap()
@@ -160,7 +159,7 @@ async fn join_room(
 ) {
     let addr = client.address();
     let game = SimpleGame::new(network.address("SimpleGame").unwrap(), client);
-    game.join_room(U256::from(room), addr, [0u8; 32])
+    game.join_room(U256::from(room), addr, addr, [0u8; 32])
         .send()
         .await
         .unwrap()
@@ -174,9 +173,8 @@ async fn check_room_status(
     client: Arc<SignerMiddleware<Provider<Http>, LocalWallet>>,
 ) {
     let addr = client.address();
-    let game = H160(network.address("SimpleGame").unwrap());
     let market = RoomMarket::new(network.address("RoomMarket").unwrap(), client);
-    let result1 = market.sequencers(addr, game).await.unwrap();
+    let result1 = market.sequencers(addr).await.unwrap();
     let result2 = market.rooms(U256::from(room)).await.unwrap();
     println!("Chain sequencer Status: {:?}", result1);
     println!("Chain room      Status: {:?}", result2);
