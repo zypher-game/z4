@@ -34,6 +34,7 @@ async function deploy() {
 
   const addresses = {
     Token: token,
+    RoomMarket: game,
     Game: game,
   };
   const filename = `../../public/${network.name}.json`;
