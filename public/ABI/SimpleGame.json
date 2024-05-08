@@ -336,11 +336,6 @@
       },
       {
         "internalType": "address",
-        "name": "player",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
         "name": "peer",
         "type": "address"
       },
@@ -386,11 +381,6 @@
         "internalType": "uint256",
         "name": "roomId",
         "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
       },
       {
         "internalType": "address",

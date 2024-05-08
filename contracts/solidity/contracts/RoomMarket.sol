@@ -115,12 +115,12 @@ abstract contract RoomMarket is Ownable {
         emit UnstakeSequencer(msg.sender, sequencer.staking);
     }
 
-    function createRoom(uint256 ticket, address player, address peer, bytes32 pk) external returns (uint256) {
+    function createRoom(uint256 ticket, address peer, bytes32 pk) external returns (uint256) {
         // TODO Transfer ticket to contract
 
         Room storage room = rooms[nextRoomId];
-        room.exists[player] = true;
-        room.players.push(player);
+        room.exists[msg.sender] = true;
+        room.players.push(msg.sender);
         room.peers.push(peer);
         room.pks.push(pk);
 
@@ -130,27 +130,27 @@ abstract contract RoomMarket is Ownable {
         room.status = RoomStatus.Opening;
 
         nextRoomId += 1;
-        emit CreateRoom(nextRoomId - 1, address(this), room.reward, player, peer, pk);
+        emit CreateRoom(nextRoomId - 1, address(this), room.reward, msg.sender, peer, pk);
 
         return nextRoomId - 1;
     }
 
-    function joinRoom(uint256 roomId, address player, address peer, bytes32 pk) external returns (uint256) {
+    function joinRoom(uint256 roomId, address peer, bytes32 pk) external returns (uint256) {
         Room storage room = rooms[roomId];
         require(room.status == RoomStatus.Opening, "RM02");
-        require(room.site > 0 && !room.exists[player], "RM03");
+        require(room.site > 0 && !room.exists[msg.sender], "RM03");
 
         // TODO Transfer ticket to contract
 
-        room.exists[player] = true;
-        room.players.push(player);
+        room.exists[msg.sender] = true;
+        room.players.push(msg.sender);
         room.peers.push(peer);
         room.pks.push(pk);
 
         room.reward += room.ticket;
         room.site -= 1;
 
-        emit JoinRoom(roomId, player, peer, pk);
+        emit JoinRoom(roomId, msg.sender, peer, pk);
 
         if (room.site == 0) {
             room.status = RoomStatus.Waiting;

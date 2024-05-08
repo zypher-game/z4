@@ -142,7 +142,7 @@ async fn create_room(
 
     let addr = client.address();
     let game = SimpleGame::new(network.address("SimpleGame").unwrap(), client);
-    game.create_room(U256::zero(), addr, addr, [0u8; 32])
+    game.create_room(U256::zero(), addr, [0u8; 32])
         .send()
         .await
         .unwrap()
@@ -159,7 +159,7 @@ async fn join_room(
 ) {
     let addr = client.address();
     let game = SimpleGame::new(network.address("SimpleGame").unwrap(), client);
-    game.join_room(U256::from(room), addr, addr, [0u8; 32])
+    game.join_room(U256::from(room), addr, [0u8; 32])
         .send()
         .await
         .unwrap()
