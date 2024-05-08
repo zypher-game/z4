@@ -1,6 +1,6 @@
 use ethers::prelude::*;
 use std::sync::Arc;
-use z4_engine::{Config, Demo, Engine, Network, NetworkConfig, PeerKey, RoomId, RoomMarket, Token};
+use z4_engine::{Config, SimpleGame, Engine, Network, NetworkConfig, PeerKey, RoomId, RoomMarket, Token};
 
 mod shoot_common;
 use shoot_common::*;
@@ -84,7 +84,7 @@ async fn main() {
     config.ws_port = Some(8000);
     config.secret_key = hex::encode(server_key.to_db_bytes());
     config.chain_network = network.to_str().to_owned();
-    config.games = vec![format!("{}", hex::encode(network.address("Demo").unwrap()))];
+    config.games = vec![format!("{}", hex::encode(network.address("SimpleGame").unwrap()))];
     tokio::spawn(Engine::<ShootHandler>::init(config).run());
     println!("running engine ok");
 
@@ -119,7 +119,7 @@ async fn register_sequencer(
 ) {
     let stake = U256::from(10000);
     let addr = client.address();
-    let game = H160(network.address("Demo").unwrap());
+    let game = H160(network.address("SimpleGame").unwrap());
     let market = RoomMarket::new(network.address("RoomMarket").unwrap(), client.clone());
 
     let result1 = market.sequencers(addr, game).await.unwrap();
@@ -142,7 +142,7 @@ async fn create_room(
     let next_room = market.next_room_id().await.unwrap();
 
     let addr = client.address();
-    let game = Demo::new(network.address("Demo").unwrap(), client);
+    let game = SimpleGame::new(network.address("SimpleGame").unwrap(), client);
     game.create_room(addr, [0u8; 32])
         .send()
         .await
@@ -159,7 +159,7 @@ async fn join_room(
     client: Arc<SignerMiddleware<Provider<Http>, LocalWallet>>,
 ) {
     let addr = client.address();
-    let game = Demo::new(network.address("Demo").unwrap(), client);
+    let game = SimpleGame::new(network.address("SimpleGame").unwrap(), client);
     game.join_room(U256::from(room), addr, [0u8; 32])
         .send()
         .await
@@ -174,7 +174,7 @@ async fn check_room_status(
     client: Arc<SignerMiddleware<Provider<Http>, LocalWallet>>,
 ) {
     let addr = client.address();
-    let game = H160(network.address("Demo").unwrap());
+    let game = H160(network.address("SimpleGame").unwrap());
     let market = RoomMarket::new(network.address("RoomMarket").unwrap(), client);
     let result1 = market.sequencers(addr, game).await.unwrap();
     let result2 = market.rooms(U256::from(room)).await.unwrap();

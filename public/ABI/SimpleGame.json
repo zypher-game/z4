@@ -3,6 +3,37 @@
     "inputs": [
       {
         "internalType": "address",
+        "name": "_token",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_minStaking",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_playerRoomLock",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_playerLimit",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_startRoomId",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
         "name": "owner",
         "type": "address"
       }
@@ -175,6 +206,31 @@
       }
     ],
     "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "win",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "reward",
+        "type": "uint256"
+      }
+    ],
+    "name": "Ranking",
     "type": "event"
   },
   {
