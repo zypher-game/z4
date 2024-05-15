@@ -127,7 +127,7 @@ async fn register_sequencer(
     let market = RoomMarket::new(network.address("RoomMarket").unwrap(), client.clone());
 
     let result1 = market.sequencers(addr).await.unwrap();
-    if result1.1 == U256::from(0) {
+    if result1.2 == U256::from(0) {
         let token = Token::new(network.address("Token").unwrap(), client);
         token.approve(market.address(), stake).send().await.unwrap();
         market

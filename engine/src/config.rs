@@ -91,7 +91,7 @@ impl Config {
                 .unwrap(),
         );
 
-        if self.auto_stake && (!self.url_http.is_empty() || !self.websocket.is_empty()) {
+        if self.auto_stake && (!self.url_http.is_empty() || !self.url_websocket.is_empty()) {
             // check & register sequencer
             let market_address = H160(network.address("RoomMarket").unwrap());
             let token_address = H160(network.address("Token").unwrap());
@@ -105,7 +105,11 @@ impl Config {
                 Ok(pending) => {
                     if let Ok(_receipt) = pending.await {
                         let _ = contract
-                            .stake_sequencer(self.http.clone(), self.websocket.clone(), amount)
+                            .stake_sequencer(
+                                self.url_http.clone(),
+                                self.url_websocket.clone(),
+                                amount,
+                            )
                             .send()
                             .await;
                     } else {
