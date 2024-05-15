@@ -126,7 +126,7 @@ async fn register_sequencer(
         let token = Token::new(network.address("Token").unwrap(), client);
         token.approve(market.address(), stake).send().await.unwrap();
         market
-            .stake_sequencer("".to_owned(), stake)
+            .stake_sequencer("".to_owned(), "".to_owned(), stake)
             .send()
             .await
             .unwrap();

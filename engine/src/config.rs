@@ -28,8 +28,10 @@ pub struct Config {
     pub chain_start_block: Option<u64>,
     /// auto stake to sequencer
     pub auto_stake: bool,
-    /// http for this service
-    pub http: String,
+    /// http url for this service
+    pub url_http: String,
+    /// http url for this service
+    pub url_websocket: String,
 }
 
 impl Config {
@@ -89,7 +91,7 @@ impl Config {
                 .unwrap(),
         );
 
-        if self.auto_stake && !self.http.is_empty() {
+        if self.auto_stake && (!self.url_http.is_empty() || !self.websocket.is_empty()) {
             // check & register sequencer
             let market_address = H160(network.address("RoomMarket").unwrap());
             let token_address = H160(network.address("Token").unwrap());
@@ -103,7 +105,7 @@ impl Config {
                 Ok(pending) => {
                     if let Ok(_receipt) = pending.await {
                         let _ = contract
-                            .stake_sequencer(self.http.clone(), amount)
+                            .stake_sequencer(self.http.clone(), self.websocket.clone(), amount)
                             .send()
                             .await;
                     } else {
