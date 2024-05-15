@@ -36,13 +36,13 @@ pub struct HandlerRoom<H: Handler> {
 }
 
 /// Pending room
-struct PendingRoom {
+pub struct PendingRoom {
     game: GameId,
     viewable: bool,
     /// player params: account, peer, pubkey
-    players: Vec<(Address, PeerId, [u8; 32])>,
+    pub players: Vec<(Address, PeerId, [u8; 32])>,
     /// sequencer params: peer, websocket
-    sequencer: Option<(PeerId, String)>,
+    pub sequencer: Option<(PeerId, String)>,
 }
 
 /// Engine
@@ -89,7 +89,7 @@ impl<H: Handler> Engine<H> {
     ) {
         if let Some(games) = self.games.get_mut(&game) {
             if !self.pending.contains_key(&id) {
-                self.pending.insert(PendingRoom {
+                self.pending.insert(id, PendingRoom {
                     game,
                     viewable,
                     players: vec![(account, peer, pubkey)],
@@ -136,7 +136,7 @@ impl<H: Handler> Engine<H> {
 
             if is_self {
                 let (handler, tasks) = H::create(&proom.players, params, id).await;
-                let ids: Vec<PeerId> = proom.peers.iter().map(|(_aid, pid, _pk)| *pid).collect();
+                let ids: Vec<PeerId> = proom.players.iter().map(|(_aid, pid, _pk)| *pid).collect();
                 // running tasks
                 let (tx, rx) = channel(1);
                 let room = Arc::new(Mutex::new(HandlerRoom {
@@ -289,7 +289,7 @@ impl<H: Handler> Engine<H> {
                         // send accept operation to chain
                         // check room is exist
                         if let Some(proom) = self.pending.get(&rid) {
-                            let params = H::accept(&proom.peers).await;
+                            let params = H::accept(&proom.players).await;
                             let _ = pool_send.send(PoolMessage::AcceptRoom(rid, params));
                         } else if self.games.contains_key(&game) {
                             // TODO fetch room from chain.

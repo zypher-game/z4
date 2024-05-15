@@ -220,7 +220,7 @@ pub async fn running(
                 } = create;
                 info!(
                     "scan create: {} {} {} {} {}",
-                    room, game, reward, vieable, player
+                    room, game, reward, viewable, player
                 );
 
                 match (parse_room(room), parse_peer(peer)) {

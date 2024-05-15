@@ -30,6 +30,7 @@ impl Room {
 
         Self {
             id,
+            viewable,
             players,
             viewers,
         }
