@@ -43,9 +43,9 @@ pub async fn handle_rpc<H: Handler>(
         let mut pendings = vec![];
         if let Some(rooms) = engine.games.get(&game) {
             for room in rooms {
-                if let Some((_, ps, seq)) = engine.pending.get(room) {
-                    let players: Vec<String> = ps.iter().map(|(p, _, _)| address_hex(p)).collect();
-                    if let Some((seq, http)) = seq {
+                if let Some(proom) = engine.pending.get(room) {
+                    let players: Vec<String> = proom.players.iter().map(|(p, _, _)| address_hex(p)).collect();
+                    if let Some((seq, http)) = &proom.sequencer {
                         pendings.push(json!({
                             "room": room,
                             "players": players,
@@ -90,7 +90,7 @@ pub async fn handle_rpc<H: Handler>(
         return Ok(());
     }
 
-    if engine.is_room_peer(&gid, &peer_id).await {
+    if engine.is_room_player(&gid, &peer_id).await {
         let params = H::Param::from_value(params)?;
         let mut hr = engine.get_room(&gid).lock().await;
         let mut res = hr.handler.handle(peer_id, &method, params).await?;

@@ -125,6 +125,12 @@
       },
       {
         "indexed": false,
+        "internalType": "bool",
+        "name": "viewable",
+        "type": "bool"
+      },
+      {
+        "indexed": false,
         "internalType": "address",
         "name": "player",
         "type": "address"
@@ -339,6 +345,11 @@
         "internalType": "uint256",
         "name": "ticket",
         "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "viewable",
+        "type": "bool"
       },
       {
         "internalType": "address",
@@ -590,6 +601,11 @@
     ],
     "name": "rooms",
     "outputs": [
+      {
+        "internalType": "bool",
+        "name": "viewable",
+        "type": "bool"
+      },
       {
         "internalType": "uint256",
         "name": "ticket",
