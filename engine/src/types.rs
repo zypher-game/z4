@@ -46,7 +46,7 @@ pub struct P2pMessage<'a> {
 }
 
 pub enum ChainMessage {
-    CreateRoom(RoomId, GameId, Address, PeerId, [u8; 32]),
+    CreateRoom(RoomId, GameId, bool, Address, PeerId, [u8; 32]),
     JoinRoom(RoomId, Address, PeerId, [u8; 32]),
     StartRoom(RoomId, Address),
     AcceptRoom(RoomId, PeerId, String, Vec<u8>),

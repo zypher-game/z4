@@ -1,6 +1,8 @@
 use ethers::prelude::*;
 use std::sync::Arc;
-use z4_engine::{Config, SimpleGame, Engine, Network, NetworkConfig, PeerKey, RoomId, RoomMarket, Token};
+use z4_engine::{
+    Config, Engine, Network, NetworkConfig, PeerKey, RoomId, RoomMarket, SimpleGame, Token,
+};
 
 mod shoot_common;
 use shoot_common::*;
@@ -84,7 +86,10 @@ async fn main() {
     config.ws_port = Some(8000);
     config.secret_key = hex::encode(server_key.to_db_bytes());
     config.chain_network = network.to_str().to_owned();
-    config.games = vec![format!("{}", hex::encode(network.address("SimpleGame").unwrap()))];
+    config.games = vec![format!(
+        "{}",
+        hex::encode(network.address("SimpleGame").unwrap())
+    )];
     tokio::spawn(Engine::<ShootHandler>::init(config).run());
     println!("running engine ok");
 
@@ -142,7 +147,7 @@ async fn create_room(
 
     let addr = client.address();
     let game = SimpleGame::new(network.address("SimpleGame").unwrap(), client);
-    game.create_room(U256::zero(), addr, [0u8; 32])
+    game.create_room(U256::zero(), false, addr, [0u8; 32])
         .send()
         .await
         .unwrap()

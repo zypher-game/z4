@@ -19,6 +19,7 @@ struct CreateRoom {
     room: U256,
     game: Address,
     reward: U256,
+    viewable: bool,
     player: Address,
     peer: Address,
     pk: H256,
@@ -212,17 +213,22 @@ pub async fn running(
                     room,
                     game,
                     reward,
+                    viewable,
                     player,
                     peer,
                     pk,
                 } = create;
-                info!("scan create: {} {} {} {}", room, game, reward, player);
+                info!(
+                    "scan create: {} {} {} {} {}",
+                    room, game, reward, viewable, player
+                );
 
                 match (parse_room(room), parse_peer(peer)) {
                     (Some(rid), Some(peer)) => {
                         sender.send(ChainMessage::CreateRoom(
                             rid,
                             game,
+                            viewable,
                             player,
                             peer,
                             pk.to_fixed_bytes(),
