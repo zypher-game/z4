@@ -84,7 +84,7 @@ pub async fn handle_rpc<H: Handler>(
             let res = hr.handler.online(peer_id).await?;
 
             let is_rpc = if is_ws { None } else { Some((peer_id, uid)) };
-            handle_result(&hr.room, res, send, is_rpc).await;
+            handle_result(&hr.room, res, send, is_rpc, id).await;
             drop(hr);
         } else {
             if !engine.has_peer(&peer_id).await {
@@ -101,7 +101,7 @@ pub async fn handle_rpc<H: Handler>(
 
         let over = res.replace_over();
         let is_rpc = if is_ws { None } else { Some((peer_id, uid)) };
-        handle_result(&hr.room, res, send, is_rpc).await;
+        handle_result(&hr.room, res, send, is_rpc, id).await;
         drop(hr);
         if let Some((data, proof)) = over {
             let _ = chain_send.send(ChainMessage::GameOverRoom(gid, data, proof));

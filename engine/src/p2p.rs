@@ -42,7 +42,7 @@ pub async fn handle_p2p<H: Handler>(
             }
 
             let hr = engine.get_room(&gid).lock().await;
-            handle_result(&hr.room, res, send, None).await;
+            handle_result(&hr.room, res, send, None, 0).await;
             drop(hr);
         }
         RecvType::Leave(peer) => {
@@ -50,7 +50,7 @@ pub async fn handle_p2p<H: Handler>(
 
             let mut hr = engine.get_room(&gid).lock().await;
             let res = hr.handler.offline(peer.id).await?;
-            handle_result(&hr.room, res, send, None).await;
+            handle_result(&hr.room, res, send, None, 0).await;
             drop(hr)
         }
         RecvType::Event(peer_id, data) => {
@@ -62,7 +62,7 @@ pub async fn handle_p2p<H: Handler>(
                 let mut res = hr.handler.handle(peer_id, method, params).await?;
 
                 let over = res.replace_over();
-                handle_result(&hr.room, res, send, None).await;
+                handle_result(&hr.room, res, send, None, 0).await;
                 drop(hr);
                 if let Some((data, proof)) = over {
                     let _ = chain_send.send(ChainMessage::GameOverRoom(gid, data, proof));

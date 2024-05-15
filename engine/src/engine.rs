@@ -347,6 +347,7 @@ pub async fn handle_result<P: Param>(
     result: HandleResult<P>,
     send: &Sender<SendMessage>,
     rpc: Option<(PeerId, u64)>,
+    id: u64,
 ) {
     let HandleResult {
         mut all,
@@ -362,7 +363,7 @@ pub async fn handle_result<P: Param>(
                 params: params.to_bytes(),
             };
             let p2p_bytes = bincode::serialize(&p2p_msg).unwrap(); // safe
-            let rpc_msg = rpc_response(0, &method, params.to_value(), room.id);
+            let rpc_msg = rpc_response(id, &method, params.to_value(), room.id);
             match room.get(&peer) {
                 ConnectType::P2p => send
                     .send(SendMessage::Group(
@@ -398,7 +399,7 @@ pub async fn handle_result<P: Param>(
                 params: params.to_bytes(),
             };
             let p2p_bytes = bincode::serialize(&p2p_msg).unwrap(); // safe
-            let rpc_msg = rpc_response(0, &method, params.to_value(), room.id);
+            let rpc_msg = rpc_response(id, &method, params.to_value(), room.id);
             for (peer, c) in room.iter() {
                 match c {
                     ConnectType::P2p => {
@@ -437,7 +438,7 @@ pub async fn handle_result<P: Param>(
             params: vec![],
         };
         let p2p_bytes = bincode::serialize(&p2p_msg).unwrap(); // safe
-        let rpc_msg = rpc_response(0, "over", Default::default(), room.id);
+        let rpc_msg = rpc_response(id, "over", Default::default(), room.id);
         for (peer, c) in room.iter() {
             match c {
                 ConnectType::P2p => send

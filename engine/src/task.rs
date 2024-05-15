@@ -83,7 +83,7 @@ async fn running<H: Handler>(
                 let mut room_lock = room.lock().await;
                 if let Ok(mut res) = task.run(&mut room_lock.handler).await {
                     let over = res.replace_over();
-                    handle_result(&room_lock.room, res, &send, None).await;
+                    handle_result(&room_lock.room, res, &send, None, 0).await;
                     if let Some((data, proof)) = over {
                         let _ = chain_send.send(ChainMessage::GameOverRoom(room_id, data, proof));
                     }
