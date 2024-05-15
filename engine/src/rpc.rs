@@ -90,7 +90,7 @@ pub async fn handle_rpc<H: Handler>(
         return Ok(());
     }
 
-    if engine.is_room_peer(&gid, &peer_id).await {
+    if engine.is_room_player(&gid, &peer_id).await {
         let params = H::Param::from_value(params)?;
         let mut hr = engine.get_room(&gid).lock().await;
         let mut res = hr.handler.handle(peer_id, &method, params).await?;

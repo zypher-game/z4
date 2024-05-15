@@ -14,40 +14,57 @@ pub enum ConnectType {
 
 pub struct Room {
     pub id: RoomId,
-    players: HashMap<PeerId, ConnectType>,
+    viewable: bool,
+    players: Vec<PeerId>,
+    viewers: HashMap<PeerId, ConnectType>,
 }
 
 impl Room {
-    pub fn new(id: RoomId, peers: &[PeerId]) -> Self {
-        let players = peers.iter().map(|p| (*p, ConnectType::None)).collect();
-        Self { id, players }
+    pub fn new(id: RoomId, viewable: bool, peers: &[PeerId]) -> Self {
+        let players = peers.to_vec();
+        let viewers = if viewable {
+            HashMap::new()
+        } else {
+            peers.iter().map(|p| (*p, ConnectType::None)).collect()
+        };
+
+        Self {
+            id,
+            players,
+            viewers,
+        }
     }
 
     pub fn iter(&self) -> Iter<PeerId, ConnectType> {
-        self.players.iter()
+        self.viewers.iter()
     }
 
-    pub fn contains(&self, peer: &PeerId) -> bool {
-        self.players.contains_key(peer)
+    pub fn is_player(&self, peer: &PeerId) -> bool {
+        self.players.contains(peer)
     }
 
     pub fn get(&self, peer: &PeerId) -> ConnectType {
-        self.players
+        self.viewers
             .get(peer)
             .map(|c| *c)
             .unwrap_or(ConnectType::None)
     }
 
     pub fn online(&mut self, peer: PeerId, ctype: ConnectType) -> bool {
-        if self.players.contains_key(&peer) {
-            self.players.insert(peer, ctype);
+        if self.viewable {
+            self.viewers.insert(peer, ctype);
             true
         } else {
-            false
+            if self.viewers.contains_key(&peer) {
+                self.viewers.insert(peer, ctype);
+                true
+            } else {
+                false
+            }
         }
     }
 
     pub fn offline(&mut self, peer: PeerId) {
-        self.players.insert(peer, ConnectType::None);
+        self.viewers.insert(peer, ConnectType::None);
     }
 }

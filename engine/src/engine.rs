@@ -35,6 +35,16 @@ pub struct HandlerRoom<H: Handler> {
     tasks: Sender<TaskMessage>,
 }
 
+/// Pending room
+struct PendingRoom {
+    game: GameId,
+    viewable: bool,
+    /// player params: account, peer, pubkey
+    players: Vec<(Address, PeerId, [u8; 32])>,
+    /// sequencer params: peer, websocket
+    sequencer: Option<(PeerId, String)>,
+}
+
 /// Engine
 pub struct Engine<H: Handler> {
     /// config of engine and network
@@ -42,14 +52,7 @@ pub struct Engine<H: Handler> {
     /// rooms which is running
     rooms: HashMap<RoomId, Arc<Mutex<HandlerRoom<H>>>>,
     /// rooms which is waiting create, room => (game, players, sequencer)
-    pub pending: HashMap<
-        RoomId,
-        (
-            GameId,
-            Vec<(Address, PeerId, [u8; 32])>,
-            Option<(PeerId, String)>,
-        ),
-    >,
+    pub pending: HashMap<RoomId, PendingRoom>,
     /// supported games and game's pending rooms
     pub games: HashMap<GameId, Vec<RoomId>>,
     /// connected peers
@@ -79,29 +82,37 @@ impl<H: Handler> Engine<H> {
         &mut self,
         id: RoomId,
         game: GameId,
-        aid: Address,
-        pid: PeerId,
-        pk: [u8; 32],
+        viewable: bool,
+        account: Address,
+        peer: PeerId,
+        pubkey: [u8; 32],
     ) {
         if let Some(games) = self.games.get_mut(&game) {
             if !self.pending.contains_key(&id) {
-                self.pending.insert(id, (game, vec![(aid, pid, pk)], None));
+                self.pending.insert(PendingRoom {
+                    game,
+                    viewable,
+                    players: vec![(account, peer, pubkey)],
+                    sequencer: None,
+                });
                 games.push(id);
             }
         }
     }
 
     /// join new player to the room
-    pub fn join_pending(&mut self, id: RoomId, aid: Address, pid: PeerId, pk: [u8; 32]) {
-        if let Some((_, peers, _)) = self.pending.get_mut(&id) {
-            peers.push((aid, pid, pk));
+    pub fn join_pending(&mut self, id: RoomId, account: Address, peer: PeerId, pubkey: [u8; 32]) {
+        if let Some(proom) = self.pending.get_mut(&id) {
+            proom.players.push((account, peer, pubkey));
         }
     }
 
     /// create a pending room when scan from chain
     pub fn del_pending(&mut self, id: RoomId) {
-        if let Some((game, _, _)) = self.pending.remove(&id) {
-            self.games.get_mut(&game).map(|v| vec_remove_item(v, &id));
+        if let Some(proom) = self.pending.remove(&id) {
+            self.games
+                .get_mut(&proom.game)
+                .map(|v| vec_remove_item(v, &id));
         }
     }
 
@@ -120,19 +131,19 @@ impl<H: Handler> Engine<H> {
         send: Sender<SendMessage>,
         chain_send: UnboundedSender<ChainMessage>,
     ) {
-        if let Some((game, peers, seq)) = self.pending.get_mut(&id) {
-            *seq = Some(sequencer);
+        if let Some(proom) = self.pending.get_mut(&id) {
+            proom.sequencer = Some(sequencer);
 
             if is_self {
-                let (handler, tasks) = H::create(&peers, params, id).await;
-                let ids: Vec<PeerId> = peers.iter().map(|(_aid, pid, _pk)| *pid).collect();
+                let (handler, tasks) = H::create(&proom.players, params, id).await;
+                let ids: Vec<PeerId> = proom.peers.iter().map(|(_aid, pid, _pk)| *pid).collect();
                 // running tasks
                 let (tx, rx) = channel(1);
                 let room = Arc::new(Mutex::new(HandlerRoom {
                     handler,
-                    game: *game,
+                    game: proom.game,
                     tasks: tx,
-                    room: Room::new(id, &ids),
+                    room: Room::new(id, proom.viewable, &ids),
                 }));
 
                 tokio::spawn(handle_tasks(id, room.clone(), send, chain_send, rx, tasks));
@@ -157,9 +168,9 @@ impl<H: Handler> Engine<H> {
         self.rooms.get(id).unwrap() // safe before check
     }
 
-    pub async fn is_room_peer(&self, id: &RoomId, peer: &PeerId) -> bool {
+    pub async fn is_room_player(&self, id: &RoomId, peer: &PeerId) -> bool {
         if let Some(hr) = self.rooms.get(id) {
-            hr.lock().await.room.contains(peer)
+            hr.lock().await.room.is_player(peer)
         } else {
             false
         }
@@ -266,25 +277,26 @@ impl<H: Handler> Engine<H> {
                     ReceiveMessage::Own(..) => {}
                 },
                 Some(FutureMessage::Chain(message)) => match message {
-                    ChainMessage::CreateRoom(rid, game, player, peer, pk) => {
-                        println!("NEW ROOM created !!!");
-                        self.create_pending(rid, game, player, peer, pk);
+                    ChainMessage::CreateRoom(rid, game, viewable, player, peer, pk) => {
+                        info!("Engine: chain new room created !");
+                        self.create_pending(rid, game, viewable, player, peer, pk);
                     }
                     ChainMessage::JoinRoom(rid, player, peer, pk) => {
+                        info!("Engine: chain new player joined !");
                         self.join_pending(rid, player, peer, pk);
                     }
                     ChainMessage::StartRoom(rid, game) => {
                         // send accept operation to chain
                         // check room is exist
-                        if let Some((_, peers, _)) = self.pending.get(&rid) {
-                            let params = H::accept(peers).await;
+                        if let Some(proom) = self.pending.get(&rid) {
+                            let params = H::accept(&proom.peers).await;
                             let _ = pool_send.send(PoolMessage::AcceptRoom(rid, params));
                         } else if self.games.contains_key(&game) {
                             // TODO fetch room from chain.
                         }
                     }
                     ChainMessage::AcceptRoom(rid, sequencer, http, params) => {
-                        println!("Engine: start new room: {}", rid);
+                        info!("Engine: start new room: {}", rid);
                         // if mine, create room
                         let is_own = sequencer == peer_addr;
                         self.start_room(

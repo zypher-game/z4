@@ -23,6 +23,7 @@ abstract contract RoomMarket is Ownable {
         address[] players;
         address[] peers;
         bytes32[] pks;
+        bool viewable;
         uint256 ticket;
         uint256 reward;
         address sequencer;
@@ -60,7 +61,7 @@ abstract contract RoomMarket is Ownable {
 
     event StakeSequencer(address sequencer, string http, uint256 staking);
     event UnstakeSequencer(address sequencer, uint256 staking);
-    event CreateRoom(uint256 room, address game, uint256 reward, address player, address peer, bytes32 pk);
+    event CreateRoom(uint256 room, address game, uint256 reward, bool viewable, address player, address peer, bytes32 pk);
     event JoinRoom(uint256 room, address player, address peer, bytes32 pk);
     event StartRoom(uint256 room, address game);
     event AcceptRoom(uint256 room, address sequencer, string http, uint256 locked, bytes params);
@@ -115,7 +116,7 @@ abstract contract RoomMarket is Ownable {
         emit UnstakeSequencer(msg.sender, sequencer.staking);
     }
 
-    function createRoom(uint256 ticket, address peer, bytes32 pk) external returns (uint256) {
+    function createRoom(uint256 ticket, bool viewable, address peer, bytes32 pk) external returns (uint256) {
         // TODO Transfer ticket to contract
 
         Room storage room = rooms[nextRoomId];
@@ -124,13 +125,14 @@ abstract contract RoomMarket is Ownable {
         room.peers.push(peer);
         room.pks.push(pk);
 
+        room.viewable = viewable;
         room.ticket = ticket;
         room.reward = ticket;
         room.site = playerLimit - 1;
         room.status = RoomStatus.Opening;
 
         nextRoomId += 1;
-        emit CreateRoom(nextRoomId - 1, address(this), room.reward, msg.sender, peer, pk);
+        emit CreateRoom(nextRoomId - 1, address(this), room.reward, viewable, msg.sender, peer, pk);
 
         return nextRoomId - 1;
     }

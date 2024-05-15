@@ -54,7 +54,7 @@ pub async fn handle_p2p<H: Handler>(
             drop(hr)
         }
         RecvType::Event(peer_id, data) => {
-            if engine.is_room_peer(&gid, &peer_id).await {
+            if engine.is_room_player(&gid, &peer_id).await {
                 let P2pMessage { method, params } = bincode::deserialize(&data)?;
                 let params = H::Param::from_bytes(&params)?;
 
