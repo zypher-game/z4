@@ -35,6 +35,7 @@ abstract contract RoomMarket is Ownable {
 
     struct Sequencer {
         string http;
+        string websocket;
         uint256 staking;
     }
 
@@ -59,12 +60,12 @@ abstract contract RoomMarket is Ownable {
     /// registered sequencers
     mapping(address => Sequencer) public sequencers;
 
-    event StakeSequencer(address sequencer, string http, uint256 staking);
+    event StakeSequencer(address sequencer, string http, string websocket, uint256 staking);
     event UnstakeSequencer(address sequencer, uint256 staking);
     event CreateRoom(uint256 room, address game, uint256 reward, bool viewable, address player, address peer, bytes32 pk);
     event JoinRoom(uint256 room, address player, address peer, bytes32 pk);
     event StartRoom(uint256 room, address game);
-    event AcceptRoom(uint256 room, address sequencer, string http, uint256 locked, bytes params);
+    event AcceptRoom(uint256 room, address sequencer, string websocket, uint256 locked, bytes params);
     event OverRoom(uint256 room);
     event ClaimRoom(uint256 room);
 
@@ -96,14 +97,15 @@ abstract contract RoomMarket is Ownable {
         return sequencers[sequencer].staking >= minStaking;
     }
 
-    function stakeSequencer(string calldata http, uint256 amount) external {
+    function stakeSequencer(string calldata http, string calldata websocket, uint256 amount) external {
         IERC20(token).transferFrom(msg.sender, address(this), amount);
 
         Sequencer storage sequencer = sequencers[msg.sender];
         sequencer.staking += amount;
         sequencer.http = http;
+        sequencer.websocket = websocket;
 
-        emit StakeSequencer(msg.sender, http, sequencer.staking);
+        emit StakeSequencer(msg.sender, http, websocket, sequencer.staking);
     }
 
     function unstakeSequencer(uint256 amount) external {
@@ -184,7 +186,7 @@ abstract contract RoomMarket is Ownable {
 
         sequencer.staking -= lockAmount;
 
-        emit AcceptRoom(roomId, msg.sender, sequencer.http, lockAmount, params);
+        emit AcceptRoom(roomId, msg.sender, sequencer.websocket, lockAmount, params);
     }
 
     function overRoomWithZk(uint256 roomId, bytes calldata data, bytes calldata proof) external {

@@ -39,7 +39,7 @@
       {
         "indexed": false,
         "internalType": "string",
-        "name": "http",
+        "name": "websocket",
         "type": "string"
       },
       {
@@ -196,6 +196,12 @@
         "indexed": false,
         "internalType": "string",
         "name": "http",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "websocket",
         "type": "string"
       },
       {
@@ -599,6 +605,11 @@
         "type": "string"
       },
       {
+        "internalType": "string",
+        "name": "websocket",
+        "type": "string"
+      },
+      {
         "internalType": "uint256",
         "name": "staking",
         "type": "uint256"
@@ -664,6 +675,11 @@
       {
         "internalType": "string",
         "name": "http",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "websocket",
         "type": "string"
       },
       {

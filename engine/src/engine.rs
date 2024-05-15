@@ -89,12 +89,15 @@ impl<H: Handler> Engine<H> {
     ) {
         if let Some(games) = self.games.get_mut(&game) {
             if !self.pending.contains_key(&id) {
-                self.pending.insert(id, PendingRoom {
-                    game,
-                    viewable,
-                    players: vec![(account, peer, pubkey)],
-                    sequencer: None,
-                });
+                self.pending.insert(
+                    id,
+                    PendingRoom {
+                        game,
+                        viewable,
+                        players: vec![(account, peer, pubkey)],
+                        sequencer: None,
+                    },
+                );
                 games.push(id);
             }
         }

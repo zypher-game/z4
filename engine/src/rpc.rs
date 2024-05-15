@@ -44,7 +44,11 @@ pub async fn handle_rpc<H: Handler>(
         if let Some(rooms) = engine.games.get(&game) {
             for room in rooms {
                 if let Some(proom) = engine.pending.get(room) {
-                    let players: Vec<String> = proom.players.iter().map(|(p, _, _)| address_hex(p)).collect();
+                    let players: Vec<String> = proom
+                        .players
+                        .iter()
+                        .map(|(p, _, _)| address_hex(p))
+                        .collect();
                     if let Some((seq, http)) = &proom.sequencer {
                         pendings.push(json!({
                             "room": room,
