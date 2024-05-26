@@ -1,24 +1,16 @@
-use clap::{Subcommand, Parser, Args, ValueEnum};
+use clap::{Parser, Args, ValueEnum};
 
 #[derive(Parser)]
-#[command(name = "cargo")]
-#[command(bin_name = "cargo")]
-enum CargoCli {
-    Z4 {
-        #[command(subcommand)]
-        sub: Z4SubCli
-    }
-}
-
-#[derive(Subcommand)]
-enum Z4SubCli {
-    New(Z4NewArgs),
-    Deploy(Z4DeployArgs),
+#[command(name = "z4")]
+#[command(bin_name = "z4")]
+enum Z4Cli {
+    New(NewArgs),
+    Deploy(DeployArgs),
 }
 
 #[derive(Args, Debug)]
 #[command(version, about, long_about = None)]
-struct Z4NewArgs {
+struct NewArgs {
     #[arg(long)]
     contract: Option<Contract>,
     #[arg(long)]
@@ -40,7 +32,7 @@ enum Zk {
 
 #[derive(Args, Debug)]
 #[command(version, about, long_about = None)]
-struct Z4DeployArgs {
+struct DeployArgs {
     #[arg(long)]
     rpc: String,
     #[arg(long)]
@@ -48,12 +40,11 @@ struct Z4DeployArgs {
 }
 
 fn main() {
-    let CargoCli::Z4 { sub } = CargoCli::parse();
-    match sub {
-        Z4SubCli::New(args) => {
+    match Z4Cli::parse() {
+        Z4Cli::New(args) => {
             println!("{:?}", args);
         }
-        Z4SubCli::Deploy(args) => {
+        Z4Cli::Deploy(args) => {
             println!("{:?}", args);
         }
     }
