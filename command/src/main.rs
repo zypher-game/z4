@@ -9,10 +9,15 @@ enum Z4Cli {
 }
 
 #[derive(Args, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, about = "New game with Z4 & ZK", long_about = None)]
 struct NewArgs {
+    /// game name
+    #[arg(long)]
+    name: String,
+    /// contract language
     #[arg(long)]
     contract: Option<Contract>,
+    /// zk schemes or zkvm
     #[arg(long)]
     zk: Option<Zk>,
 }
@@ -31,10 +36,15 @@ enum Zk {
 }
 
 #[derive(Args, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, about = "Deploy contracts to chain", long_about = None)]
 struct DeployArgs {
+    /// optional contract name
+    #[arg(long)]
+    contract: Option<String>,
+    /// RPC endpoint
     #[arg(long)]
     rpc: String,
+    /// Deploy secret key
     #[arg(long)]
     sk: String,
 }
