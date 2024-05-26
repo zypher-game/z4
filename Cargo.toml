@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "command",
   "engine",
   "node",
   "types",
