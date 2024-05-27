@@ -1,13 +1,13 @@
 use serde_json::Value;
 
-pub const ROOM_MARKET_ABI: &str = include_str!("../../public/ABI/RoomMarket.json");
-pub const TOKEN_ABI: &str = include_str!("../../public/ABI/Token.json");
-pub const SIMPLE_GAME_ABI: &str = include_str!("../../public/ABI/SimpleGame.json");
+pub const ROOM_MARKET_ABI: &str = include_str!("../public/ABI/RoomMarket.json");
+pub const TOKEN_ABI: &str = include_str!("../public/ABI/Token.json");
+pub const SIMPLE_GAME_ABI: &str = include_str!("../public/ABI/SimpleGame.json");
 
-const LOCALHOST_ADDRESS: &str = include_str!("../../public/localhost.json");
-const HOLESKY_ADDRESS: &str = include_str!("../../public/localhost.json");
-const SEPOLIA_ADDRESS: &str = include_str!("../../public/sepolia.json");
-const OPBNBTESTNET_ADDRESS: &str = include_str!("../../public/opbnbtestnet.json");
+const LOCALHOST_ADDRESS: &str = include_str!("../public/localhost.json");
+const HOLESKY_ADDRESS: &str = include_str!("../public/localhost.json");
+const SEPOLIA_ADDRESS: &str = include_str!("../public/sepolia.json");
+const OPBNBTESTNET_ADDRESS: &str = include_str!("../public/opbnbtestnet.json");
 
 /// Default network
 pub const DEFAULT_NETWORK: Network = Network::Localhost;

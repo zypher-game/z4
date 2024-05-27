@@ -1,11 +1,13 @@
-# Z4 engine
+# Z4
 
-Z4 engine for multiplayer real-time games.
+Z4 game framework for multiplayer real-time games.
 
 ## contents
-1. engine - Z4 game development framework
-2. node - Universal node when game is running in zkVM
-3. contracts - On-chain verification and other contracts
+1. engine - Z4 game framework
+1. types - Z4 game framework common types
+1. contracts - On-chain verification and other contracts
+1. node - Universal node when game is running in zkVM
+1. command - a command tool for Z4 game framework
 
 ## License
 
