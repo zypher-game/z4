@@ -5,9 +5,9 @@ use ethers::{
 
 pub use z4_types::contracts::{Network, NetworkConfig};
 
-abigen!(RoomMarket, "../public/ABI/RoomMarket.json");
-abigen!(Token, "../public/ABI/Token.json");
-abigen!(SimpleGame, "../public/ABI/SimpleGame.json");
+abigen!(RoomMarket, "public/ABI/RoomMarket.json");
+abigen!(Token, "public/ABI/Token.json");
+abigen!(SimpleGame, "public/ABI/SimpleGame.json");
 
 /// helper for generate simple game result, for ranking
 pub fn simple_game_result(ranks: &[Address]) -> Vec<u8> {

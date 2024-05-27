@@ -1,6 +1,6 @@
 [package]
-name = "z4-types"
-description = "Z4 game framework types"
+name = "z4"
+description = "a command tool for Z4 game framework"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -8,9 +8,7 @@ homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
 license.workspace = true
-include.workspace = true
 
 [dependencies]
-anyhow.workspace = true
-hex.workspace = true
-serde_json.workspace = true
+clap.workspace = true
+serde.workspace = true
