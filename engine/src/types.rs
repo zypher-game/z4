@@ -39,6 +39,16 @@ pub fn address_hex(a: &Address) -> String {
     PeerId(a.to_fixed_bytes()).to_hex()
 }
 
+pub fn env_value<T: std::str::FromStr>(key: &str, default: Option<T>) -> Result<T> {
+    match (std::env::var(key), default) {
+        (Ok(v), _) => v
+            .parse()
+            .map_err(|_| Error::Anyhow(key.to_owned() + " env invalid")),
+        (Err(_), Some(v)) => Ok(v),
+        (Err(_), None) => return Err(Error::Anyhow(key.to_owned() + " env missing")),
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct P2pMessage<'a> {
     pub method: &'a str,

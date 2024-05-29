@@ -4,7 +4,7 @@ use tdn::prelude::{Config as TdnConfig, PeerKey};
 
 use crate::{
     contracts::{Network, NetworkConfig, RoomMarket, Token},
-    types::Z4_ROOM_MARKET_GROUP,
+    types::{env_value, Result, Z4_ROOM_MARKET_GROUP},
 };
 
 /// config of engine
@@ -35,6 +35,34 @@ pub struct Config {
 }
 
 impl Config {
+    pub fn from_env() -> Result<Self> {
+        dotenv::dotenv().ok();
+
+        let network = env_value("NETWORK", None)?;
+        let game = env_value("GAME", None)?;
+        let secret_key = env_value("SECRET_KEY", None)?;
+        let start_block = env_value("START_BLOCK", None).ok();
+
+        let url_http = env_value("URL_HTTP", Some("".to_owned()))?;
+        let url_websocket = env_value("URL_WEBSOCKET", Some("".to_owned()))?;
+        let http_port = env_value("HTTP_PORT", Some(8080))?;
+        let ws_port = env_value("WS_PORT", Some(8000))?;
+        let auto_stake = env_value("AUTO_STAKE", Some(false))?;
+
+        let mut config = Config::default();
+        config.http_port = http_port;
+        config.ws_port = Some(ws_port);
+        config.secret_key = secret_key;
+        config.chain_network = network;
+        config.chain_start_block = start_block;
+        config.games = vec![game];
+        config.auto_stake = auto_stake;
+        config.url_http = url_http;
+        config.url_websocket = url_websocket;
+
+        Ok(config)
+    }
+
     pub fn to_tdn(&self) -> (TdnConfig, PeerKey) {
         let mut config = TdnConfig::default();
         config.rpc_ws = match self.ws_port {

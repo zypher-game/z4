@@ -21,6 +21,7 @@ ark-serialize.workspace = true
 ark-std.workspace = true
 async-trait.workspace = true
 bincode.workspace = true
+dotenv.workspace = true
 ethers.workspace = true
 ethereum-types.workspace = true
 hex.workspace = true
