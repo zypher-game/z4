@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
-use crate::contracts::{ RoomMarket};
+use crate::contracts::RoomMarket;
 use crate::{ChainMessage, PoolMessage, Result, RoomId};
 
 const GAS_PRICE: u64 = 20_000_000_000; // 20 GWEI

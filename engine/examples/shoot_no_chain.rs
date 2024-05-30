@@ -41,7 +41,7 @@ async fn main() {
     let game = GAME.parse().unwrap();
 
     let mut engine = Engine::<ShootHandler>::init(config);
-    engine.create_pending(ROOM, game, H160(id1.0), id1, [0u8; 32]);
+    engine.create_pending(ROOM, game, false, H160(id1.0), id1, [0u8; 32]);
     engine.join_pending(ROOM, H160(id2.0), id2, [0u8; 32]);
     engine.join_pending(ROOM, H160(id3.0), id3, [0u8; 32]);
     engine.join_pending(ROOM, H160(id4.0), id4, [0u8; 32]);

@@ -41,6 +41,9 @@ pub fn address_hex(a: &Address) -> String {
 
 pub fn hex_address(v: &str) -> Result<Address> {
     if let Ok(v) = hex::decode(v.trim_start_matches("0x")) {
+        if v.len() != 20 {
+            return Err(Error::Anyhow("address invalid".to_owned()));
+        }
         let mut bytes = [0u8; 20];
         bytes.copy_from_slice(&v);
         Ok(H160(bytes))

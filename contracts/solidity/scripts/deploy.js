@@ -27,17 +27,17 @@ async function deployContract(name, params=[]) {
   return address;
 }
 
-const ONE_TOKEN = 10000000000000000000;
+const ONE_TOKEN = 10000000000000000000n;
 
 async function deploy() {
   // Zypher Game Coin & SimpleGame
-  const token = await deployContract("Token", [1000000 * ONE_TOKEN]); // 1,000,000 TOEKN
+  const token = await deployContract("Token", [1000000000n * ONE_TOKEN]); // 1,000,000,000 TOEKN
 
   // min staking: 100 TOKEN
   // player room lock: 100 TOKEN
-  // player limit: 3
+  // player limit: 4
   // start room id: 10000
-  const game = await deployContract("SimpleGame", [token, 100 * ONE_TOKEN, 100 * ONE_TOKEN, 3, 10000]);
+  const game = await deployContract("SimpleGame", [token, 100n * ONE_TOKEN, 100n * ONE_TOKEN, 4, 10000]);
 
   const addresses = {
     Token: token,

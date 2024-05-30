@@ -8,7 +8,7 @@ use tokio::{
     time::timeout,
 };
 
-use crate::contracts::{ RoomMarket};
+use crate::contracts::RoomMarket;
 use crate::{ChainMessage, PeerId, PublicKey, RoomId};
 
 const TIMEOUT: u64 = 10;

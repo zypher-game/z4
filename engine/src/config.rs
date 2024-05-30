@@ -1,10 +1,10 @@
-use ethers::prelude::{Http, LocalWallet, Provider, SignerMiddleware, U256, Address};
+use ethers::prelude::{Address, Http, LocalWallet, Provider, SignerMiddleware, U256};
 use std::{path::PathBuf, sync::Arc};
 use tdn::prelude::{Config as TdnConfig, PeerKey};
 
 use crate::{
     contracts::{Network, NetworkConfig, RoomMarket, Token},
-    types::{env_value, env_values, Result, Z4_ROOM_MARKET_GROUP, hex_address},
+    types::{env_value, env_values, hex_address, Result, Z4_ROOM_MARKET_GROUP},
 };
 
 /// config of engine
@@ -14,8 +14,6 @@ pub struct Config {
     pub groups: Vec<u64>,
     /// supported games
     pub games: Vec<String>,
-    /// main token
-    pub token: String,
     /// main room market
     pub room_market: String,
     /// the server secret key (SECP256K1)
@@ -44,7 +42,6 @@ impl Config {
 
         let network = env_value("NETWORK", None)?;
         let games: Vec<String> = env_values("GAMES", None)?;
-        let token = env_value("TOKEN", None)?;
         let secret_key = env_value("SECRET_KEY", None)?;
         let start_block = env_value("START_BLOCK", None).ok();
 
@@ -62,7 +59,6 @@ impl Config {
         config.chain_network = network;
         config.chain_start_block = start_block;
         config.games = games;
-        config.token = token;
         config.room_market = room_market;
         config.auto_stake = auto_stake;
         config.url_http = url_http;
@@ -127,16 +123,22 @@ impl Config {
                 .unwrap(),
         );
 
-        let market_address = hex_address(&self.room_market).expect("Invalid room market address");
+        let room_market = if self.room_market.is_empty() {
+            &self.games[0]
+        } else {
+            &self.room_market
+        };
+        let market_address = hex_address(room_market).expect("Invalid room market address");
         if self.auto_stake && (!self.url_http.is_empty() || !self.url_websocket.is_empty()) {
             // check & register sequencer
-            let token_address = hex_address(&self.token).expect("Invalid token address");
             let contract = RoomMarket::new(market_address, signer_provider.clone());
+            let token_address = contract.token().await.unwrap();
             let token = Token::new(token_address, signer_provider.clone());
 
             // TODO check staking is enough
 
-            let amount = contract.min_staking().await.unwrap() * U256::from(1000000);
+            let amount = contract.min_staking().await.unwrap() * U256::from(100);
+            info!("Auto staking: {}", amount);
             match token.approve(market_address, amount).send().await {
                 Ok(pending) => {
                     if let Ok(_receipt) = pending.await {
@@ -162,6 +164,11 @@ impl Config {
             }
         }
 
-        Some((providers, signer_provider, market_address, self.chain_start_block))
+        Some((
+            providers,
+            signer_provider,
+            market_address,
+            self.chain_start_block,
+        ))
     }
 }

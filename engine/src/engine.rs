@@ -244,7 +244,12 @@ impl<H: Handler> Engine<H> {
         if let Some((scan_providers, pool_provider, market_address, start_block)) = chain_option {
             let send1 = chain_send.clone();
             let send2 = chain_send.clone();
-            tokio::spawn(scan_listen(scan_providers, market_address, send1, start_block));
+            tokio::spawn(scan_listen(
+                scan_providers,
+                market_address,
+                send1,
+                start_block,
+            ));
             tokio::spawn(pool_listen(pool_provider, market_address, send2, pool_recv));
         }
 
