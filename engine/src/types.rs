@@ -39,11 +39,46 @@ pub fn address_hex(a: &Address) -> String {
     PeerId(a.to_fixed_bytes()).to_hex()
 }
 
+pub fn hex_address(v: &str) -> Result<Address> {
+    if let Ok(v) = hex::decode(v.trim_start_matches("0x")) {
+        let mut bytes = [0u8; 20];
+        bytes.copy_from_slice(&v);
+        Ok(H160(bytes))
+    } else {
+        Err(Error::Anyhow("address invalid".to_owned()))
+    }
+}
+
 pub fn env_value<T: std::str::FromStr>(key: &str, default: Option<T>) -> Result<T> {
     match (std::env::var(key), default) {
         (Ok(v), _) => v
             .parse()
             .map_err(|_| Error::Anyhow(key.to_owned() + " env invalid")),
+        (Err(_), Some(v)) => Ok(v),
+        (Err(_), None) => return Err(Error::Anyhow(key.to_owned() + " env missing")),
+    }
+}
+
+pub fn env_values<T: std::str::FromStr>(key: &str, default: Option<Vec<T>>) -> Result<Vec<T>> {
+    match (std::env::var(key), default) {
+        (Ok(v), default) => {
+            let mut items = vec![];
+            for item in v.split(",") {
+                items.push(
+                    item.parse()
+                        .map_err(|_| Error::Anyhow(key.to_owned() + " env invalid"))?,
+                );
+            }
+            if items.is_empty() {
+                if let Some(d) = default {
+                    Ok(d)
+                } else {
+                    Err(Error::Anyhow(key.to_owned() + " env invalid"))
+                }
+            } else {
+                Ok(items)
+            }
+        }
         (Err(_), Some(v)) => Ok(v),
         (Err(_), None) => return Err(Error::Anyhow(key.to_owned() + " env missing")),
     }

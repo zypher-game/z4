@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
-use crate::contracts::{Network, RoomMarket};
+use crate::contracts::{ RoomMarket};
 use crate::{ChainMessage, PoolMessage, Result, RoomId};
 
 const GAS_PRICE: u64 = 20_000_000_000; // 20 GWEI
@@ -15,11 +15,11 @@ pub fn pool_channel() -> (UnboundedSender<PoolMessage>, UnboundedReceiver<PoolMe
 
 pub async fn listen(
     client: Arc<SignerMiddleware<Arc<Provider<Http>>, LocalWallet>>,
-    network: Network,
+    market_address: Address,
     sender: UnboundedSender<ChainMessage>,
     mut receiver: UnboundedReceiver<PoolMessage>,
 ) -> Result<()> {
-    let market = RoomMarket::new(H160(network.address("RoomMarket").unwrap()), client.clone());
+    let market = RoomMarket::new(market_address, client.clone());
     let mut games: HashMap<RoomId, (Vec<u8>, Vec<u8>)> = HashMap::new();
 
     while let Some(msg) = receiver.recv().await {

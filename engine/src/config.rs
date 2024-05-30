@@ -1,10 +1,10 @@
-use ethers::prelude::{Http, LocalWallet, Provider, SignerMiddleware, H160, U256};
+use ethers::prelude::{Http, LocalWallet, Provider, SignerMiddleware, U256, Address};
 use std::{path::PathBuf, sync::Arc};
 use tdn::prelude::{Config as TdnConfig, PeerKey};
 
 use crate::{
     contracts::{Network, NetworkConfig, RoomMarket, Token},
-    types::{env_value, Result, Z4_ROOM_MARKET_GROUP},
+    types::{env_value, env_values, Result, Z4_ROOM_MARKET_GROUP, hex_address},
 };
 
 /// config of engine
@@ -14,6 +14,10 @@ pub struct Config {
     pub groups: Vec<u64>,
     /// supported games
     pub games: Vec<String>,
+    /// main token
+    pub token: String,
+    /// main room market
+    pub room_market: String,
     /// the server secret key (SECP256K1)
     pub secret_key: String,
     /// the server websocket port
@@ -39,10 +43,12 @@ impl Config {
         dotenv::dotenv().ok();
 
         let network = env_value("NETWORK", None)?;
-        let game = env_value("GAME", None)?;
+        let games: Vec<String> = env_values("GAMES", None)?;
+        let token = env_value("TOKEN", None)?;
         let secret_key = env_value("SECRET_KEY", None)?;
         let start_block = env_value("START_BLOCK", None).ok();
 
+        let room_market = env_value("ROOM_MARKET", Some(games[0].clone()))?;
         let url_http = env_value("URL_HTTP", Some("".to_owned()))?;
         let url_websocket = env_value("URL_WEBSOCKET", Some("".to_owned()))?;
         let http_port = env_value("HTTP_PORT", Some(8080))?;
@@ -55,7 +61,9 @@ impl Config {
         config.secret_key = secret_key;
         config.chain_network = network;
         config.chain_start_block = start_block;
-        config.games = vec![game];
+        config.games = games;
+        config.token = token;
+        config.room_market = room_market;
         config.auto_stake = auto_stake;
         config.url_http = url_http;
         config.url_websocket = url_websocket;
@@ -89,7 +97,7 @@ impl Config {
     ) -> Option<(
         Vec<Arc<Provider<Http>>>,
         Arc<SignerMiddleware<Arc<Provider<Http>>, LocalWallet>>,
-        Network,
+        Address,
         Option<u64>,
     )> {
         if self.chain_network.is_empty() {
@@ -119,10 +127,10 @@ impl Config {
                 .unwrap(),
         );
 
+        let market_address = hex_address(&self.room_market).expect("Invalid room market address");
         if self.auto_stake && (!self.url_http.is_empty() || !self.url_websocket.is_empty()) {
             // check & register sequencer
-            let market_address = H160(network.address("RoomMarket").unwrap());
-            let token_address = H160(network.address("Token").unwrap());
+            let token_address = hex_address(&self.token).expect("Invalid token address");
             let contract = RoomMarket::new(market_address, signer_provider.clone());
             let token = Token::new(token_address, signer_provider.clone());
 
@@ -154,6 +162,6 @@ impl Config {
             }
         }
 
-        Some((providers, signer_provider, network, self.chain_start_block))
+        Some((providers, signer_provider, market_address, self.chain_start_block))
     }
 }

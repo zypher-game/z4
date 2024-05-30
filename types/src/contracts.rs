@@ -1,13 +1,6 @@
-use serde_json::Value;
-
 pub const ROOM_MARKET_ABI: &str = include_str!("../public/ABI/RoomMarket.json");
 pub const TOKEN_ABI: &str = include_str!("../public/ABI/Token.json");
 pub const SIMPLE_GAME_ABI: &str = include_str!("../public/ABI/SimpleGame.json");
-
-const LOCALHOST_ADDRESS: &str = include_str!("../public/localhost.json");
-const HOLESKY_ADDRESS: &str = include_str!("../public/localhost.json");
-const SEPOLIA_ADDRESS: &str = include_str!("../public/sepolia.json");
-const OPBNBTESTNET_ADDRESS: &str = include_str!("../public/opbnbtestnet.json");
 
 /// Default network
 pub const DEFAULT_NETWORK: Network = Network::Localhost;
@@ -22,30 +15,6 @@ pub enum Network {
 }
 
 impl Network {
-    /// Get contract name from network
-    pub fn address(&self, name: &str) -> Option<[u8; 20]> {
-        let addresses = match self {
-            Network::Localhost => LOCALHOST_ADDRESS,
-            Network::Holesky => HOLESKY_ADDRESS,
-            Network::Sepolia => SEPOLIA_ADDRESS,
-            Network::OpBNBTestnet => OPBNBTESTNET_ADDRESS,
-        };
-
-        if let Ok(address) = serde_json::from_str::<Value>(addresses) {
-            address[name].as_str().and_then(|v| {
-                if let Ok(v) = hex::decode(v.trim_start_matches("0x")) {
-                    let mut bytes = [0u8; 20];
-                    bytes.copy_from_slice(&v);
-                    Some(bytes)
-                } else {
-                    None
-                }
-            })
-        } else {
-            None
-        }
-    }
-
     /// Get the network from lower-case string
     pub fn from_str(s: &str) -> Self {
         match s {

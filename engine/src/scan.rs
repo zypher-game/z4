@@ -8,7 +8,7 @@ use tokio::{
     time::timeout,
 };
 
-use crate::contracts::{Network, RoomMarket};
+use crate::contracts::{ RoomMarket};
 use crate::{ChainMessage, PeerId, PublicKey, RoomId};
 
 const TIMEOUT: u64 = 10;
@@ -62,11 +62,10 @@ pub fn chain_channel() -> (
 
 pub async fn listen(
     clients: Vec<Arc<Provider<Http>>>,
-    network: Network,
+    market_address: Address,
     sender: UnboundedSender<ChainMessage>,
     start: Option<u64>,
 ) -> Result<()> {
-    let market_address = H160(network.address("RoomMarket").unwrap());
     let markets: Vec<_> = clients
         .iter()
         .map(|client| RoomMarket::new(market_address, client.clone()))
