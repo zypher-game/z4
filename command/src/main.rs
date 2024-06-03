@@ -1,6 +1,8 @@
 use clap::{Args, Parser};
 use std::process::Command;
 
+mod contract;
+
 // const REPO: &str = "https://github.com/zypher-game/z4-templates.git"; // must use https git
 const CONTRACT_MODES: [&str; 1] = ["solidity"];
 const ZK_MODES: [&str; 2] = ["custom", "risc0"];
@@ -79,6 +81,7 @@ fn main() {
         }
         Z4Cli::Deploy(args) => {
             println!("{:?}", args);
+            contract::deploy(args.rpc, args.sk, args.contract).await;
         }
     }
 }

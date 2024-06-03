@@ -30,8 +30,8 @@ contract SimpleGame is RoomMarket {
 
             // TODO transfer limit-1/limit reward to winner
 
-            ranking[winners[1]].win += 3;
-            ranking[winners[1]].reward += amount;
+            ranking[winners[0]].win += 3;
+            ranking[winners[0]].reward += amount;
             emit Ranking(winners[0], 3, amount);
         }
 
@@ -39,7 +39,7 @@ contract SimpleGame is RoomMarket {
             // TODO transfer ticket reward to winner
             uint256 amount = room.ticket;
 
-            ranking[winners[1]].win += 3;
+            ranking[winners[1]].win += 1;
             ranking[winners[1]].reward += amount;
             emit Ranking(winners[1], 1, amount);
         }

@@ -11,4 +11,5 @@ license.workspace = true
 
 [dependencies]
 clap.workspace = true
+ethers.workspace = true
 serde.workspace = true

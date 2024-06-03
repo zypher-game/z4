@@ -43,7 +43,7 @@ struct StartRoom {
 struct AcceptRoom {
     room: U256,
     sequencer: Address,
-    http: String,
+    websocket: String,
     locked: U256,
     params: Bytes,
 }
@@ -281,14 +281,14 @@ pub async fn running(
                 let AcceptRoom {
                     room,
                     sequencer,
-                    http,
+                    websocket,
                     locked,
                     params,
                 } = accept;
-                info!("scan accept: {} {} {} {}", room, sequencer, http, locked);
+                info!("scan accept: {} {} {} {}", room, sequencer, websocket, locked);
                 match (parse_room(room), parse_peer(sequencer)) {
                     (Some(rid), Some(pid)) => {
-                        sender.send(ChainMessage::AcceptRoom(rid, pid, http, params.to_vec()))?;
+                        sender.send(ChainMessage::AcceptRoom(rid, pid, websocket, params.to_vec()))?;
                     }
                     _ => continue,
                 }

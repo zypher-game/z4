@@ -49,12 +49,12 @@ pub async fn handle_rpc<H: Handler>(
                         .iter()
                         .map(|(p, _, _)| address_hex(p))
                         .collect();
-                    if let Some((seq, http)) = &proom.sequencer {
+                    if let Some((seq, ws)) = &proom.sequencer {
                         pendings.push(json!({
                             "room": room,
                             "players": players,
                             "sequencer": seq.to_hex(),
-                            "http": http
+                            "websocket": ws
                         }));
                     } else {
                         pendings.push(json!({

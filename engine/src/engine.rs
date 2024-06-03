@@ -303,13 +303,13 @@ impl<H: Handler> Engine<H> {
                             // TODO fetch room from chain.
                         }
                     }
-                    ChainMessage::AcceptRoom(rid, sequencer, http, params) => {
+                    ChainMessage::AcceptRoom(rid, sequencer, ws, params) => {
                         info!("Engine: start new room: {}", rid);
                         // if mine, create room
                         let is_own = sequencer == peer_addr;
                         self.start_room(
                             rid,
-                            (sequencer, http),
+                            (sequencer, ws),
                             params,
                             is_own,
                             send.clone(),
