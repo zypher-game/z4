@@ -12,6 +12,7 @@ pub enum Network {
     Holesky,
     Sepolia,
     OpBNBTestnet,
+    Other,
 }
 
 impl Network {
@@ -22,7 +23,7 @@ impl Network {
             "holesky" => Network::Holesky,
             "sepolia" => Network::Sepolia,
             "opbnbtestnet" => Network::OpBNBTestnet,
-            _ => DEFAULT_NETWORK,
+            _ => Network::Other,
         }
     }
 
@@ -32,6 +33,7 @@ impl Network {
             Network::Holesky => "holesky",
             Network::Sepolia => "sepolia",
             Network::OpBNBTestnet => "opbnbtestnet",
+            Network::Other => "other"
         }
     }
 
@@ -118,6 +120,7 @@ impl NetworkConfig {
                     decimals: 18,
                 },
             },
+            Network::Other => panic!("No config for other network")
         }
     }
 }

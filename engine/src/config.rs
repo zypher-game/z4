@@ -45,6 +45,7 @@ impl Config {
         let secret_key = env_value("SECRET_KEY", None)?;
         let start_block = env_value("START_BLOCK", None).ok();
 
+        let chain_rpcs = env_values("RPC_ENDPOINTS", Some(vec![]))?;
         let room_market = env_value("ROOM_MARKET", Some(games[0].clone()))?;
         let url_http = env_value("URL_HTTP", Some("".to_owned()))?;
         let url_websocket = env_value("URL_WEBSOCKET", Some("".to_owned()))?;
@@ -57,6 +58,7 @@ impl Config {
         config.ws_port = Some(ws_port);
         config.secret_key = secret_key;
         config.chain_network = network;
+        config.chain_rpcs = chain_rpcs;
         config.chain_start_block = start_block;
         config.games = games;
         config.room_market = room_market;
