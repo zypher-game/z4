@@ -22,6 +22,8 @@ pub struct Config {
     pub ws_port: Option<u16>,
     /// the server rpc port
     pub http_port: u16,
+    /// the p2p port
+    pub p2p_port: u16,
     /// the chain network name
     pub chain_network: String,
     /// the chain rpcs
@@ -51,11 +53,13 @@ impl Config {
         let url_websocket = env_value("URL_WEBSOCKET", Some("".to_owned()))?;
         let http_port = env_value("HTTP_PORT", Some(8080))?;
         let ws_port = env_value("WS_PORT", Some(8000))?;
+        let p2p_port = env_value("P2P_PORT", Some(7364))?;
         let auto_stake = env_value("AUTO_STAKE", Some(false))?;
 
         let mut config = Config::default();
         config.http_port = http_port;
         config.ws_port = Some(ws_port);
+        config.p2p_port = p2p_port;
         config.secret_key = secret_key;
         config.chain_network = network;
         config.chain_rpcs = chain_rpcs;
@@ -70,12 +74,13 @@ impl Config {
     }
 
     pub fn to_tdn(&self) -> (TdnConfig, PeerKey) {
-        let mut config = TdnConfig::default();
+        let rpc_addr = format!("0.0.0.0:{}", self.http_port).parse().unwrap();
+        let p2p_addr = format!("0.0.0.0:{}", self.p2p_port).parse().unwrap();
+        let mut config = TdnConfig::with_addr(p2p_addr, rpc_addr);
         config.rpc_ws = match self.ws_port {
             Some(port) => Some(format!("0.0.0.0:{}", port).parse().unwrap()),
             None => None,
         };
-        config.rpc_http = Some(format!("0.0.0.0:{}", self.http_port).parse().unwrap());
         config.group_ids = self.groups.clone();
         config.group_ids.push(Z4_ROOM_MARKET_GROUP);
 
