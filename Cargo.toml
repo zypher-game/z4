@@ -8,7 +8,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 authors = ["Zypher <dev@zypher.network>"]
 readme = "README.md"
@@ -20,8 +20,8 @@ license = "GPL-3.0-only"
 include = ["public", "src", "Cargo.toml", "README.md"]
 
 [workspace.dependencies]
-z4-types = { version = "0.0.1", path = "./types" }
-z4-engine = { version = "0.0.1", path = "./engine" }
+z4-types = { version = "0.1", path = "./types" }
+z4-engine = { version = "0.1", path = "./engine" }
 
 anyhow = "1.0"
 async-trait = "0.1"

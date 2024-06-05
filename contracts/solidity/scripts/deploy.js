@@ -44,16 +44,16 @@ async function deploy() {
     RoomMarket: game,
     SimpleGame: game,
   };
-  const filename = `../../public/${network.name}.json`;
-  writeFile(
-    filename,
-    JSON.stringify(addresses, null, 2),
-    function(err) {
-      if (err) {
-        console.log(err);
-      }
-    });
-  console.log(`Save to ${filename}`);
+  // const filename = `../../public/${network.name}.json`;
+  // writeFile(
+  //   filename,
+  //   JSON.stringify(addresses, null, 2),
+  //   function(err) {
+  //     if (err) {
+  //       console.log(err);
+  //     }
+  //   });
+  // console.log(`Save to ${filename}`);
 }
 
 async function main() {
