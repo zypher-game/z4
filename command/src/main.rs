@@ -43,8 +43,7 @@ struct DeployArgs {
     sk: String,
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     match Z4Cli::parse() {
         Z4Cli::New(args) => {
             let contract_mode = if let Some(contract) = args.contract {
@@ -82,7 +81,7 @@ async fn main() {
         }
         Z4Cli::Deploy(args) => {
             println!("{:?}", args);
-            contract::deploy(args.rpc, args.sk, args.contract).await;
+            contract::deploy(args.rpc, args.sk, args.contract);
         }
     }
 }
