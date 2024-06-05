@@ -23,6 +23,8 @@ struct CreateRoom {
     player: Address,
     peer: Address,
     pk: H256,
+    salt: H256,
+    block: H256,
 }
 
 #[derive(Clone, Debug, EthEvent)]
@@ -216,6 +218,8 @@ pub async fn running(
                     player,
                     peer,
                     pk,
+                    salt,
+                    block,
                 } = create;
                 info!(
                     "scan create: {} {} {} {} {}",
@@ -231,6 +235,8 @@ pub async fn running(
                             player,
                             peer,
                             pk.to_fixed_bytes(),
+                            salt.to_fixed_bytes(),
+                            block.to_fixed_bytes(),
                         ))?;
                     }
                     _ => continue,
@@ -285,10 +291,18 @@ pub async fn running(
                     locked,
                     params,
                 } = accept;
-                info!("scan accept: {} {} {} {}", room, sequencer, websocket, locked);
+                info!(
+                    "scan accept: {} {} {} {}",
+                    room, sequencer, websocket, locked
+                );
                 match (parse_room(room), parse_peer(sequencer)) {
                     (Some(rid), Some(pid)) => {
-                        sender.send(ChainMessage::AcceptRoom(rid, pid, websocket, params.to_vec()))?;
+                        sender.send(ChainMessage::AcceptRoom(
+                            rid,
+                            pid,
+                            websocket,
+                            params.to_vec(),
+                        ))?;
                     }
                     _ => continue,
                 }

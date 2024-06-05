@@ -26,6 +26,8 @@ abstract contract RoomMarket is Ownable {
         bool viewable;
         uint256 ticket;
         uint256 reward;
+        bytes32 salt;
+        bytes32 block;
         address sequencer;
         uint256 locked;
         uint256 site;
@@ -62,7 +64,7 @@ abstract contract RoomMarket is Ownable {
 
     event StakeSequencer(address sequencer, string http, string websocket, uint256 staking);
     event UnstakeSequencer(address sequencer, uint256 staking);
-    event CreateRoom(uint256 room, address game, uint256 reward, bool viewable, address player, address peer, bytes32 pk);
+    event CreateRoom(uint256 room, address game, uint256 reward, bool viewable, address player, address peer, bytes32 pk, bytes32 salt, bytes32 block);
     event JoinRoom(uint256 room, address player, address peer, bytes32 pk);
     event StartRoom(uint256 room, address game);
     event AcceptRoom(uint256 room, address sequencer, string websocket, uint256 locked, bytes params);
@@ -118,7 +120,7 @@ abstract contract RoomMarket is Ownable {
         emit UnstakeSequencer(msg.sender, sequencer.staking);
     }
 
-    function createRoom(uint256 ticket, bool viewable, address peer, bytes32 pk) external returns (uint256) {
+    function createRoom(uint256 ticket, bool viewable, address peer, bytes32 pk, bytes32 salt) external returns (uint256) {
         // TODO Transfer ticket to contract
 
         Room storage room = rooms[nextRoomId];
@@ -130,11 +132,13 @@ abstract contract RoomMarket is Ownable {
         room.viewable = viewable;
         room.ticket = ticket;
         room.reward = ticket;
+        room.salt = salt;
+        room.block = bytes32(block.prevrandao); // merge prevrandao and salt as the room random seed
         room.site = playerLimit - 1;
         room.status = RoomStatus.Opening;
 
         nextRoomId += 1;
-        emit CreateRoom(nextRoomId - 1, address(this), room.reward, viewable, msg.sender, peer, pk);
+        emit CreateRoom(nextRoomId - 1, address(this), room.reward, viewable, msg.sender, peer, pk, salt, room.block);
 
         return nextRoomId - 1;
     }
@@ -196,6 +200,7 @@ abstract contract RoomMarket is Ownable {
 
         // TODO require(proof.length > 0 && data.length > 0, "RM07");
         // TODO callback & verify zkp
+        bytes32 seed = room.salt ^ room.block;
 
         room.result = data;
         _overRoom(roomId);

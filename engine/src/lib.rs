@@ -115,6 +115,7 @@ pub trait Handler: Send + Sized + 'static {
         peers: &[(Address, PeerId, [u8; 32])],
         params: Vec<u8>,
         rid: RoomId,
+        seed: [u8; 32],
     ) -> (Self, Tasks<Self>);
 
     /// handle message in a room

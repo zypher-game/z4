@@ -115,6 +115,18 @@
         "internalType": "bytes32",
         "name": "pk",
         "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "salt",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "block",
+        "type": "bytes32"
       }
     ],
     "name": "CreateRoom",
@@ -303,6 +315,11 @@
       {
         "internalType": "bytes32",
         "name": "pk",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "salt",
         "type": "bytes32"
       }
     ],
@@ -559,6 +576,16 @@
         "internalType": "uint256",
         "name": "reward",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "salt",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "block",
+        "type": "bytes32"
       },
       {
         "internalType": "address",

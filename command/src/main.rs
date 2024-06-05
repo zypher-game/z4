@@ -3,7 +3,7 @@ use std::process::Command;
 
 mod contract;
 
-// const REPO: &str = "https://github.com/zypher-game/z4-templates.git"; // must use https git
+const REPO: &str = "https://github.com/zypher-game/z4-templates.git"; // must use https git
 const CONTRACT_MODES: [&str; 1] = ["solidity"];
 const ZK_MODES: [&str; 2] = ["custom", "risc0"];
 
@@ -43,7 +43,8 @@ struct DeployArgs {
     sk: String,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     match Z4Cli::parse() {
         Z4Cli::New(args) => {
             let contract_mode = if let Some(contract) = args.contract {

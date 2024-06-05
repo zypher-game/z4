@@ -128,7 +128,7 @@ async fn create_room(
 
     let addr = client.address();
     let game = SimpleGame::new(game, client);
-    game.create_room(U256::zero(), false, addr, [0u8; 32])
+    game.create_room(U256::zero(), false, addr, [0u8; 32], [0u8; 32])
         .send()
         .await
         .unwrap()

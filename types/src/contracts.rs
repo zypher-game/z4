@@ -33,7 +33,7 @@ impl Network {
             Network::Holesky => "holesky",
             Network::Sepolia => "sepolia",
             Network::OpBNBTestnet => "opbnbtestnet",
-            Network::Other => "other"
+            Network::Other => "other",
         }
     }
 
@@ -120,7 +120,7 @@ impl NetworkConfig {
                     decimals: 18,
                 },
             },
-            Network::Other => panic!("No config for other network")
+            Network::Other => panic!("No config for other network"),
         }
     }
 }

@@ -39,6 +39,8 @@ pub struct HandlerRoom<H: Handler> {
 pub struct PendingRoom {
     game: GameId,
     viewable: bool,
+    salt: [u8; 32],
+    block: [u8; 32],
     /// player params: account, peer, pubkey
     pub players: Vec<(Address, PeerId, [u8; 32])>,
     /// sequencer params: peer, websocket
@@ -86,6 +88,8 @@ impl<H: Handler> Engine<H> {
         account: Address,
         peer: PeerId,
         pubkey: [u8; 32],
+        salt: [u8; 32],
+        block: [u8; 32],
     ) {
         if let Some(games) = self.games.get_mut(&game) {
             if !self.pending.contains_key(&id) {
@@ -94,6 +98,8 @@ impl<H: Handler> Engine<H> {
                     PendingRoom {
                         game,
                         viewable,
+                        salt,
+                        block,
                         players: vec![(account, peer, pubkey)],
                         sequencer: None,
                     },
@@ -138,7 +144,15 @@ impl<H: Handler> Engine<H> {
             proom.sequencer = Some(sequencer);
 
             if is_self {
-                let (handler, tasks) = H::create(&proom.players, params, id).await;
+                let seed: [u8; 32] = proom
+                    .salt
+                    .iter()
+                    .zip(proom.block.iter())
+                    .map(|(&x1, &x2)| x1 ^ x2)
+                    .collect::<Vec<u8>>()
+                    .try_into()
+                    .unwrap_or([0u8; 32]);
+                let (handler, tasks) = H::create(&proom.players, params, id, seed).await;
                 let ids: Vec<PeerId> = proom.players.iter().map(|(_aid, pid, _pk)| *pid).collect();
                 // running tasks
                 let (tx, rx) = channel(1);
@@ -285,9 +299,18 @@ impl<H: Handler> Engine<H> {
                     ReceiveMessage::Own(..) => {}
                 },
                 Some(FutureMessage::Chain(message)) => match message {
-                    ChainMessage::CreateRoom(rid, game, viewable, player, peer, pk) => {
+                    ChainMessage::CreateRoom(
+                        rid,
+                        game,
+                        viewable,
+                        player,
+                        peer,
+                        pk,
+                        salt,
+                        block,
+                    ) => {
                         info!("Engine: chain new room created !");
-                        self.create_pending(rid, game, viewable, player, peer, pk);
+                        self.create_pending(rid, game, viewable, player, peer, pk, salt, block);
                     }
                     ChainMessage::JoinRoom(rid, player, peer, pk) => {
                         info!("Engine: chain new player joined !");
