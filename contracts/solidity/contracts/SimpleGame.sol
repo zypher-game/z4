@@ -12,7 +12,7 @@ contract SimpleGame is RoomMarket {
         uint256 reward;
     }
 
-    mapping(address => Rank) ranking;
+    mapping(address => Rank) public ranking;
 
     event Ranking(address, uint256 win, uint256 reward);
 
