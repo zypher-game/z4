@@ -9,10 +9,12 @@ use crate::{ChainMessage, PoolMessage, Result, RoomId};
 const GAS_PRICE: u64 = 20_000_000_000; // 20 GWEI
 const EXTRA_GAS: u64 = 10; // extra 10%
 
+/// Create pool channel
 pub fn pool_channel() -> (UnboundedSender<PoolMessage>, UnboundedReceiver<PoolMessage>) {
     unbounded_channel()
 }
 
+/// Listen pool task
 pub async fn listen(
     client: Arc<SignerMiddleware<Arc<Provider<Http>>, LocalWallet>>,
     market_address: Address,

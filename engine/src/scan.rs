@@ -55,6 +55,7 @@ struct OverRoom {
     room: U256,
 }
 
+/// Create scan channel
 pub fn chain_channel() -> (
     UnboundedSender<ChainMessage>,
     UnboundedReceiver<ChainMessage>,
@@ -62,6 +63,7 @@ pub fn chain_channel() -> (
     unbounded_channel()
 }
 
+/// Listen scan task
 pub async fn listen(
     clients: Vec<Arc<Provider<Http>>>,
     market_address: Address,
@@ -105,6 +107,7 @@ pub async fn listen(
     }
 }
 
+/// Loop running scan task
 pub async fn running(
     start_block: u64,
     clients: Vec<Arc<Provider<Http>>>,

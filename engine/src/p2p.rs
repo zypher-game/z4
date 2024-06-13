@@ -8,7 +8,7 @@ use crate::{
     Handler, Param,
 };
 
-/// handle p2p message
+/// Handle p2p message
 pub async fn handle_p2p<H: Handler>(
     engine: &Engine<H>,
     send: &Sender<SendMessage>,

@@ -39,6 +39,7 @@ pub struct Config {
 }
 
 impl Config {
+    /// Get config from env
     pub fn from_env() -> Result<Self> {
         dotenv::dotenv().ok();
 
@@ -73,6 +74,7 @@ impl Config {
         Ok(config)
     }
 
+    /// Convert config to TDN config
     pub fn to_tdn(&self) -> (TdnConfig, PeerKey) {
         let rpc_addr = format!("0.0.0.0:{}", self.http_port).parse().unwrap();
         let p2p_addr = format!("0.0.0.0:{}", self.p2p_port).parse().unwrap();
@@ -95,6 +97,7 @@ impl Config {
         (config, key)
     }
 
+    /// Convert config to chain params
     pub async fn to_chain(
         &self,
     ) -> Option<(

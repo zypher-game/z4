@@ -28,41 +28,50 @@ use crate::{
     HandleResult, Handler, Param,
 };
 
+/// Store the room info
 pub struct HandlerRoom<H: Handler> {
+    /// Game logic handler
     pub handler: H,
+    /// Game id/address
     pub game: GameId,
+    /// Room info
     pub room: Room,
+    /// Room task
     tasks: Sender<TaskMessage>,
 }
 
 /// Pending room
 pub struct PendingRoom {
+    /// Game id/address
     game: GameId,
+    /// The room is viewable for others
     viewable: bool,
+    /// The salt for seed by first player
     salt: [u8; 32],
+    /// The block info for seed on chain
     block: [u8; 32],
-    /// player params: account, peer, pubkey
+    /// Player params: account, peer, pubkey
     pub players: Vec<(Address, PeerId, [u8; 32])>,
-    /// sequencer params: peer, websocket
+    /// Sequencer params: peer, websocket
     pub sequencer: Option<(PeerId, String)>,
 }
 
 /// Engine
 pub struct Engine<H: Handler> {
-    /// config of engine and network
+    /// Config of engine and network
     config: Config,
-    /// rooms which is running
+    /// Rooms which is running
     rooms: HashMap<RoomId, Arc<Mutex<HandlerRoom<H>>>>,
-    /// rooms which is waiting create, room => (game, players, sequencer)
+    /// Rooms which is waiting create, room => (game, players, sequencer)
     pub pending: HashMap<RoomId, PendingRoom>,
-    /// supported games and game's pending rooms
+    /// Supported games and game's pending rooms
     pub games: HashMap<GameId, Vec<RoomId>>,
-    /// connected peers
+    /// Connected peers
     onlines: Arc<Mutex<HashMap<PeerId, Vec<RoomId>>>>,
 }
 
 impl<H: Handler> Engine<H> {
-    /// init a engine with config
+    /// Init a engine with config
     pub fn init(config: Config) -> Self {
         let mut games = HashMap::new();
         for game in config.games.iter() {
@@ -79,7 +88,7 @@ impl<H: Handler> Engine<H> {
         }
     }
 
-    /// create a pending room when scan from chain
+    /// Create a pending room when scan from chain
     pub fn create_pending(
         &mut self,
         id: RoomId,
@@ -109,14 +118,14 @@ impl<H: Handler> Engine<H> {
         }
     }
 
-    /// join new player to the room
+    /// Join new player to the room
     pub fn join_pending(&mut self, id: RoomId, account: Address, peer: PeerId, pubkey: [u8; 32]) {
         if let Some(proom) = self.pending.get_mut(&id) {
             proom.players.push((account, peer, pubkey));
         }
     }
 
-    /// create a pending room when scan from chain
+    /// Create a pending room when scan from chain
     pub fn del_pending(&mut self, id: RoomId) {
         if let Some(proom) = self.pending.remove(&id) {
             self.games
@@ -125,12 +134,12 @@ impl<H: Handler> Engine<H> {
         }
     }
 
-    /// check if contains pending room
+    /// Check if contains pending room
     pub fn contains_pending(&self, id: &RoomId) -> bool {
         self.pending.contains_key(id)
     }
 
-    /// create a room when scan from chain
+    /// Create a room when scan from chain
     pub async fn start_room(
         &mut self,
         id: RoomId,
@@ -169,6 +178,7 @@ impl<H: Handler> Engine<H> {
         }
     }
 
+    /// Over a room
     pub async fn over_room(&mut self, id: RoomId) {
         if let Some(room) = self.rooms.remove(&id) {
             let _ = room.lock().await.tasks.send(TaskMessage::Close).await;
@@ -177,14 +187,17 @@ impl<H: Handler> Engine<H> {
         // TODO clear onlines
     }
 
+    /// Check room exists
     pub fn has_room(&self, id: &RoomId) -> bool {
         self.rooms.contains_key(id)
     }
 
+    /// Get room info
     pub fn get_room(&self, id: &RoomId) -> &Arc<Mutex<HandlerRoom<H>>> {
         self.rooms.get(id).unwrap() // safe before check
     }
 
+    /// Check the player is in the room
     pub async fn is_room_player(&self, id: &RoomId, peer: &PeerId) -> bool {
         if let Some(hr) = self.rooms.get(id) {
             hr.lock().await.room.is_player(peer)
@@ -193,6 +206,7 @@ impl<H: Handler> Engine<H> {
         }
     }
 
+    /// Check the player is in some rooms that hold by this node
     pub async fn has_peer(&self, peer: &PeerId) -> bool {
         if let Some(rooms) = self.onlines.lock().await.get(&peer) {
             !rooms.is_empty()
@@ -201,6 +215,7 @@ impl<H: Handler> Engine<H> {
         }
     }
 
+    /// When a player online/connected
     pub async fn online(&self, id: RoomId, peer: PeerId, ctype: ConnectType) -> bool {
         let is_ok = if let Some(hr) = self.rooms.get(&id) {
             hr.lock().await.room.online(peer, ctype)
@@ -223,6 +238,7 @@ impl<H: Handler> Engine<H> {
         is_ok
     }
 
+    /// When a player offline/disconnected
     pub async fn offline(&self, peer: PeerId) {
         let mut onlines_lock = self.onlines.lock().await;
         if let Some(rooms) = onlines_lock.remove(&peer) {
@@ -234,11 +250,13 @@ impl<H: Handler> Engine<H> {
         }
     }
 
+    /// Run the engine with game logic
     pub async fn run(self) -> Result<()> {
         let (chain_send, chain_recv) = chain_channel();
         self.run_with_channel(chain_send, chain_recv).await
     }
 
+    /// Run the engine with game logic and channel
     pub async fn run_with_channel(
         mut self,
         chain_send: UnboundedSender<ChainMessage>,
@@ -370,6 +388,7 @@ enum FutureMessage {
     Chain(ChainMessage),
 }
 
+/// Handle result
 pub async fn handle_result<P: Param>(
     room: &Room,
     result: HandleResult<P>,

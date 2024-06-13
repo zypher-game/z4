@@ -15,10 +15,12 @@ use crate::{
     Handler, Task, Tasks,
 };
 
+/// Task message type
 pub enum TaskMessage {
     Close,
 }
 
+/// Handle and listening tasks
 pub async fn handle_tasks<H: Handler>(
     room_id: GroupId,
     room: Arc<Mutex<HandlerRoom<H>>>,
@@ -56,6 +58,7 @@ enum FutureMessage {
     Out(TaskMessage),
 }
 
+/// Loop listening task
 async fn running<H: Handler>(
     room_id: GroupId,
     room: Arc<Mutex<HandlerRoom<H>>>,

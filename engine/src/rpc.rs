@@ -13,7 +13,7 @@ use crate::{
     Handler, Param,
 };
 
-/// handle rpc message
+/// Handle rpc message
 pub async fn handle_rpc<H: Handler>(
     engine: &Engine<H>,
     send: &Sender<SendMessage>,

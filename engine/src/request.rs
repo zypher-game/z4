@@ -20,8 +20,10 @@ use tokio_tungstenite::{
 
 use crate::{types::*, Param};
 
+/// Channel message
 pub type ChannelMessage<P> = (RoomId, String, P);
 
+/// Create a channel
 #[inline]
 pub fn message_channel<P: Param>() -> (
     UnboundedSender<ChannelMessage<P>>,
@@ -30,7 +32,7 @@ pub fn message_channel<P: Param>() -> (
     unbounded_channel()
 }
 
-/// running a ws channel
+/// Running a ws channel
 pub async fn run_ws_channel<P: 'static + Param>(
     peer: &PeerKey,
     room: RoomId,
@@ -45,7 +47,7 @@ pub async fn run_ws_channel<P: 'static + Param>(
     Ok(out_recv)
 }
 
-/// running a p2p channel
+/// Running a p2p channel
 pub async fn run_p2p_channel<P: 'static + Param>(
     peer: &PeerKey,
     room: RoomId,

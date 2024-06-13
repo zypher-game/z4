@@ -5,23 +5,25 @@ use ark_std::{
     UniformRand,
 };
 
+/// Type PublicKey
 pub type PublicKey = EdwardsAffine;
 
+/// Type SecretKey
 pub type SecretKey = Fr;
 
-/// generate engine used keypair for player
+/// Generate engine used keypair for player
 pub fn generate_keypair<R: CryptoRng + RngCore>(prng: &mut R) -> (SecretKey, PublicKey) {
     let sk = Fr::rand(prng);
     let pk = EdwardsProjective::generator() * sk;
     (sk, EdwardsAffine::from(pk))
 }
 
-/// sign for zk-friendly
+/// Sign for zk-friendly
 pub fn sign() {
     //
 }
 
-/// verify for zk-friendly
+/// Verify for zk-friendly
 pub fn verify() {
     //
 }
