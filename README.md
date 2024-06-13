@@ -2,6 +2,12 @@
 
 Z4 game framework for multiplayer real-time games.
 
+## Usage
+1. `cargo install z4`
+2. `z4 new --name my-game`
+
+[API Document](https://docs.rs/z4-engine/0.1.0/z4_engine/) [Guide](https://docs.zypher.network/zk/z4/overview/)
+
 ## Contents
 1. engine - Z4 game framework
 1. types - Z4 game framework common types
