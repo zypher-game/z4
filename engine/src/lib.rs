@@ -20,8 +20,8 @@ pub mod request;
 /// Z4 main config.
 pub use config::Config;
 
-/// Module for Z4 contracts.
-pub use contracts::*;
+/// Z4 main contracts.
+pub use contracts::{simple_game_result, Network, NetworkConfig, RoomMarket, SimpleGame, Token};
 
 /// Z4 main engine.
 pub use engine::Engine;
