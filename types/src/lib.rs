@@ -1,14 +1,16 @@
 pub mod contracts;
 mod error;
 mod task;
+mod utils;
 
-use ethereum_types::{Address, H160};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tdn_types::primitives::PeerId;
 
 pub use error::Error;
+pub use ethereum_types::{Address, H160};
 pub use task::*;
+pub use tdn_types::primitives::PeerId;
+pub use utils::*;
 
 /// Z4 main Result with Z4 error
 pub type Result<T> = core::result::Result<T, Error>;
@@ -217,11 +219,78 @@ pub trait Handler: Send + Sized + 'static {
     async fn prove(&mut self) -> Result<(Vec<u8>, Vec<u8>)>;
 }
 
-/// Default vector json values for Param
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct DefaultParams(pub Vec<Value>);
+impl Param for Value {
+    fn to_string(self) -> String {
+        serde_json::to_string(&self).unwrap_or("".to_owned())
+    }
 
-impl Param for DefaultParams {
+    fn from_string(s: String) -> Result<Self> {
+        Ok(serde_json::from_str(&s)?)
+    }
+
+    fn to_bytes(self) -> Vec<u8> {
+        serde_json::to_vec(&self).unwrap_or(vec![])
+    }
+
+    fn from_bytes(bytes: Vec<u8>) -> Result<Self> {
+        Ok(serde_json::from_slice(&bytes)?)
+    }
+}
+
+impl Param for String {
+    fn to_string(self) -> String {
+        self
+    }
+
+    fn from_string(s: String) -> Result<Self> {
+        Ok(s)
+    }
+
+    fn to_bytes(self) -> Vec<u8> {
+        self.as_bytes().to_vec()
+    }
+
+    fn from_bytes(bytes: Vec<u8>) -> Result<Self> {
+        String::from_utf8(bytes).map_err(|_| Error::Serialize)
+    }
+}
+
+impl Param for Vec<u8> {
+    fn to_string(self) -> String {
+        hex::encode(self)
+    }
+
+    fn from_string(s: String) -> Result<Self> {
+        Ok(hex::decode(s)?)
+    }
+
+    fn to_bytes(self) -> Vec<u8> {
+        self
+    }
+
+    fn from_bytes(bytes: Vec<u8>) -> Result<Self> {
+        Ok(bytes)
+    }
+}
+
+/// method & multiple values for Param, compatible with jsonrpc
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct MethodValues {
+    pub method: String,
+    pub params: Vec<Value>,
+}
+
+impl MethodValues {
+    /// new a method with values params
+    pub fn new(method: &str, params: Vec<Value>) -> Self {
+        Self {
+            method: method.to_owned(),
+            params,
+        }
+    }
+}
+
+impl Param for MethodValues {
     fn to_string(self) -> String {
         serde_json::to_string(&self).unwrap_or("".to_owned())
     }

@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate tracing;
 
+pub use z4_types as types;
+
 use ethereum_types::Address;
 use futures_util::{SinkExt, StreamExt};
 use pozk_utils::{convert_task_to_connect_api, BinaryMessage, TextMessage};
