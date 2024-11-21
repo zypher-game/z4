@@ -1,26 +1,24 @@
 use tdn::prelude::{GroupId, RecvType, SendMessage, SendType};
-use tokio::sync::mpsc::{Sender, UnboundedSender};
+use tokio::sync::mpsc::Sender;
+use z4_types::{Handler, Param, Result, HandleResult};
 
 use crate::{
-    engine::{handle_result, Engine},
-    room::ConnectType,
-    types::{ChainMessage, P2pMessage, Result},
-    Handler, Param,
+    engine::Engine,
+    room::ConnectType
 };
 
 /// Handle p2p message
 pub async fn handle_p2p<H: Handler>(
-    engine: &Engine<H>,
+    engine: &mut Engine<H>,
     send: &Sender<SendMessage>,
-    chain_send: &UnboundedSender<ChainMessage>,
     gid: GroupId,
     msg: RecvType,
-) -> Result<()> {
+) -> Result<Option<HandleResult<H::Param>>> {
     match msg {
         RecvType::Connect(peer, _data) => {
-            let mut hr = engine.get_room(&gid).lock().await;
-            let res = hr.handler.online(peer.id).await?;
-            drop(hr);
+            let mut handler = engine.get_room(&gid).handler.lock().await;
+            let res = handler.online(peer.id).await?;
+            drop(handler);
 
             if engine.online(gid, peer.id, ConnectType::P2p).await {
                 let _ = send
@@ -41,36 +39,32 @@ pub async fn handle_p2p<H: Handler>(
                 }
             }
 
-            let hr = engine.get_room(&gid).lock().await;
-            handle_result(&hr.room, res, send, None, 0).await;
-            drop(hr);
+            Ok(Some(res))
         }
         RecvType::Leave(peer) => {
             engine.offline(peer.id).await;
 
-            let mut hr = engine.get_room(&gid).lock().await;
-            let res = hr.handler.offline(peer.id).await?;
-            handle_result(&hr.room, res, send, None, 0).await;
-            drop(hr)
+            let mut handler = engine.get_room(&gid).handler.lock().await;
+            let res = handler.offline(peer.id).await?;
+            drop(handler);
+
+            Ok(Some(res))
         }
         RecvType::Event(peer_id, data) => {
+            let param = H::Param::from_bytes(data)?;
+
             if engine.is_room_player(&gid, &peer_id).await {
-                let P2pMessage { method, params } = bincode::deserialize(&data)?;
-                let params = H::Param::from_bytes(&params)?;
+                let mut handler = engine.get_room(&gid).handler.lock().await;
+                let res = handler.handle(peer_id, param).await?;
+                drop(handler);
 
-                let mut hr = engine.get_room(&gid).lock().await;
-                let mut res = hr.handler.handle(peer_id, method, params).await?;
-
-                let over = res.replace_over();
-                handle_result(&hr.room, res, send, None, 0).await;
-                drop(hr);
-                if let Some((data, proof)) = over {
-                    let _ = chain_send.send(ChainMessage::GameOverRoom(gid, data, proof));
-                }
+                Ok(Some(res))
+            } else {
+                Ok(None)
             }
         }
-        _ => {}
+        _ => {
+            Ok(None)
+        }
     }
-
-    Ok(())
 }

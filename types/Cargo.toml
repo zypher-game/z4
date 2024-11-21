@@ -12,6 +12,9 @@ include.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+ark-ec.workspace = true
+ark-ed-on-bn254.workspace = true
+ark-std.workspace = true
 async-trait.workspace = true
 bincode.workspace = true
 ethabi.workspace = true

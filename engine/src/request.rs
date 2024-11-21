@@ -17,8 +17,9 @@ use tokio_tungstenite::{
     tungstenite::{client::IntoClientRequest, protocol::Message},
     MaybeTlsStream, WebSocketStream,
 };
+use z4_types::{Result, Param, RoomId};
 
-use crate::{types::*, Param};
+use crate::P2pMessage;
 
 /// Channel message
 pub type ChannelMessage<P> = (RoomId, String, P);
@@ -213,7 +214,7 @@ async fn p2p_listen<P: Param>(
                         if peer == server_id {
                             match bincode::deserialize::<P2pMessage>(&msg) {
                                 Ok(P2pMessage { method, params }) => {
-                                    match Param::from_bytes(&params) {
+                                    match Param::from_bytes(params) {
                                         Ok(p) => {
                                             let _ = send.send((gid, method.to_owned(), p));
                                         }

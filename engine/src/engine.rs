@@ -7,14 +7,16 @@ use tdn::{
     },
     types::{
         primitives::vec_remove_item,
-        rpc::{rpc_response, RpcError},
+        rpc::RpcError,
     },
 };
+use serde_json::{json, Value};
 use tokio::{
     select,
-    sync::mpsc::{channel, Sender, UnboundedReceiver, UnboundedSender},
+    sync::mpsc::{Sender, UnboundedReceiver, UnboundedSender, unbounded_channel},
     sync::Mutex,
 };
+use z4_types::{HandleResult, Handler, Param, handle_tasks, TaskMessage, Result, Player, GameId, RoomId, MethodValues};
 
 use crate::{
     config::Config,
@@ -23,21 +25,17 @@ use crate::{
     room::{ConnectType, Room},
     rpc::handle_rpc,
     scan::{chain_channel, listen as scan_listen},
-    task::{handle_tasks, TaskMessage},
-    types::*,
-    HandleResult, Handler, Param,
+    ChainMessage, PoolMessage
 };
 
 /// Store the room info
 pub struct HandlerRoom<H: Handler> {
     /// Game logic handler
-    pub handler: H,
+    pub handler: Arc<Mutex<H>>,
     /// Game id/address
     pub game: GameId,
     /// Room info
     pub room: Room,
-    /// Room task
-    tasks: Sender<TaskMessage>,
 }
 
 /// Pending room
@@ -51,7 +49,7 @@ pub struct PendingRoom {
     /// The block info for seed on chain
     block: [u8; 32],
     /// Player params: account, peer, pubkey
-    pub players: Vec<(Address, PeerId, [u8; 32])>,
+    pub players: Vec<Player>,
     /// Sequencer params: peer, websocket
     pub sequencer: Option<(PeerId, String)>,
 }
@@ -61,7 +59,7 @@ pub struct Engine<H: Handler> {
     /// Config of engine and network
     config: Config,
     /// Rooms which is running
-    rooms: HashMap<RoomId, Arc<Mutex<HandlerRoom<H>>>>,
+    rooms: HashMap<RoomId, HandlerRoom<H>>,
     /// Rooms which is waiting create, room => (game, players, sequencer)
     pub pending: HashMap<RoomId, PendingRoom>,
     /// Supported games and game's pending rooms
@@ -94,9 +92,7 @@ impl<H: Handler> Engine<H> {
         id: RoomId,
         game: GameId,
         viewable: bool,
-        account: Address,
-        peer: PeerId,
-        pubkey: [u8; 32],
+        player: Player,
         salt: [u8; 32],
         block: [u8; 32],
     ) {
@@ -109,7 +105,7 @@ impl<H: Handler> Engine<H> {
                         viewable,
                         salt,
                         block,
-                        players: vec![(account, peer, pubkey)],
+                        players: vec![player],
                         sequencer: None,
                     },
                 );
@@ -119,9 +115,9 @@ impl<H: Handler> Engine<H> {
     }
 
     /// Join new player to the room
-    pub fn join_pending(&mut self, id: RoomId, account: Address, peer: PeerId, pubkey: [u8; 32]) {
+    pub fn join_pending(&mut self, id: RoomId, player: Player) {
         if let Some(proom) = self.pending.get_mut(&id) {
-            proom.players.push((account, peer, pubkey));
+            proom.players.push(player);
         }
     }
 
@@ -146,8 +142,7 @@ impl<H: Handler> Engine<H> {
         sequencer: (PeerId, String),
         params: Vec<u8>,
         is_self: bool,
-        send: Sender<SendMessage>,
-        chain_send: UnboundedSender<ChainMessage>,
+        task_sender: UnboundedSender<TaskMessage<H>>,
     ) {
         if let Some(proom) = self.pending.get_mut(&id) {
             proom.sequencer = Some(sequencer);
@@ -161,30 +156,32 @@ impl<H: Handler> Engine<H> {
                     .collect::<Vec<u8>>()
                     .try_into()
                     .unwrap_or([0u8; 32]);
-                let (handler, tasks) = H::create(&proom.players, params, id, seed).await;
-                let ids: Vec<PeerId> = proom.players.iter().map(|(_aid, pid, _pk)| *pid).collect();
-                // running tasks
-                let (tx, rx) = channel(1);
-                let room = Arc::new(Mutex::new(HandlerRoom {
-                    handler,
-                    game: proom.game,
-                    tasks: tx,
-                    room: Room::new(id, proom.viewable, &ids),
-                }));
+                if let Some((raw_handler, tasks)) = H::chain_create(&proom.players, params, id, seed).await {
+                    let handler = Arc::new(Mutex::new(raw_handler));
+                    let ids: Vec<PeerId> = proom.players.iter().map(|p| p.peer).collect();
 
-                tokio::spawn(handle_tasks(id, room.clone(), send, chain_send, rx, tasks));
-                self.rooms.insert(id, room);
+                    // running tasks
+                    if !tasks.is_empty() {
+                        handle_tasks(id, tasks, handler.clone(), task_sender);
+                    }
+
+                    let room = HandlerRoom {
+                        handler: handler,
+                        game: proom.game,
+                        room: Room::new(id, proom.viewable, &ids),
+                    };
+
+                    self.rooms.insert(id, room);
+                }
             }
         }
     }
 
     /// Over a room
     pub async fn over_room(&mut self, id: RoomId) {
-        if let Some(room) = self.rooms.remove(&id) {
-            let _ = room.lock().await.tasks.send(TaskMessage::Close).await;
+        if let Some(_room) = self.rooms.remove(&id) {
+            // TODO clear onlines
         }
-
-        // TODO clear onlines
     }
 
     /// Check room exists
@@ -193,14 +190,14 @@ impl<H: Handler> Engine<H> {
     }
 
     /// Get room info
-    pub fn get_room(&self, id: &RoomId) -> &Arc<Mutex<HandlerRoom<H>>> {
+    pub fn get_room(&self, id: &RoomId) -> &HandlerRoom<H> {
         self.rooms.get(id).unwrap() // safe before check
     }
 
     /// Check the player is in the room
     pub async fn is_room_player(&self, id: &RoomId, peer: &PeerId) -> bool {
         if let Some(hr) = self.rooms.get(id) {
-            hr.lock().await.room.is_player(peer)
+            hr.room.is_player(peer)
         } else {
             false
         }
@@ -216,9 +213,9 @@ impl<H: Handler> Engine<H> {
     }
 
     /// When a player online/connected
-    pub async fn online(&self, id: RoomId, peer: PeerId, ctype: ConnectType) -> bool {
-        let is_ok = if let Some(hr) = self.rooms.get(&id) {
-            hr.lock().await.room.online(peer, ctype)
+    pub async fn online(&mut self, id: RoomId, peer: PeerId, ctype: ConnectType) -> bool {
+        let is_ok = if let Some(hr) = self.rooms.get_mut(&id) {
+            hr.room.online(peer, ctype)
         } else {
             false
         };
@@ -239,12 +236,12 @@ impl<H: Handler> Engine<H> {
     }
 
     /// When a player offline/disconnected
-    pub async fn offline(&self, peer: PeerId) {
+    pub async fn offline(&mut self, peer: PeerId) {
         let mut onlines_lock = self.onlines.lock().await;
         if let Some(rooms) = onlines_lock.remove(&peer) {
             for rid in rooms {
-                if let Some(hr) = self.rooms.get(&rid) {
-                    hr.lock().await.room.offline(peer);
+                if let Some(hr) = self.rooms.get_mut(&rid) {
+                    hr.room.offline(peer);
                 }
             }
         }
@@ -285,6 +282,7 @@ impl<H: Handler> Engine<H> {
             tokio::spawn(pool_listen(pool_provider, market_address, send2, pool_recv));
         }
 
+        let (task_sender, mut task_receiver) = unbounded_channel();
         loop {
             let work = select! {
                 w = async {
@@ -293,22 +291,51 @@ impl<H: Handler> Engine<H> {
                 w = async {
                     out_recv.recv().await.map(FutureMessage::Network)
                 } => w,
+                w = async {
+                    task_receiver.recv().await.map(FutureMessage::Task)
+                } => w,
             };
 
             match work {
+                Some(FutureMessage::Task(message)) => match message {
+                    TaskMessage::Result(rid, res) => {
+                        let is_over = res.over;
+                        handle_result(&self.get_room(&rid).room, res, &send, None, 0).await;
+                        if is_over {
+                            handle_over(rid, self.get_room(&rid).handler.clone(), chain_send.clone());
+                        }
+                    }
+                },
                 Some(FutureMessage::Network(message)) => match message {
-                    ReceiveMessage::Group(gid, msg) => {
-                        if !self.has_room(&gid) {
+                    ReceiveMessage::Group(rid, msg) => {
+                        if !self.has_room(&rid) {
                             continue;
                         }
-                        let _ = handle_p2p(&mut self, &send, &chain_send, gid, msg).await;
+                        if let Ok(Some(res)) = handle_p2p(&mut self, &send, rid, msg).await {
+                            let is_over = res.over;
+                            handle_result(&self.get_room(&rid).room, res, &send, None, 0).await;
+                            if is_over {
+                                handle_over(rid, self.get_room(&rid).handler.clone(), chain_send.clone());
+                            }
+                        }
                     }
                     ReceiveMessage::Rpc(uid, params, is_ws) => {
-                        if let Err(err) =
-                            handle_rpc(&mut self, &send, &chain_send, uid, params, is_ws).await
-                        {
-                            let msg = RpcError::Custom(format!("{:?}", err)).json(0);
-                            let _ = send.send(SendMessage::Rpc(uid, msg, is_ws)).await;
+                        match handle_rpc(&mut self, &send, uid, params, is_ws).await {
+                            Ok(Some((res, rid, is_rpc, id))) => {
+                                let is_over = res.over;
+                                handle_result(&self.get_room(&rid).room, res, &send, is_rpc, id).await;
+                                if is_over {
+                                    handle_over(rid, self.get_room(&rid).handler.clone(), chain_send.clone());
+                                }
+                            },
+                            Ok(None) => {
+                                let msg = RpcError::Custom("None".to_owned()).json(0);
+                                let _ = send.send(SendMessage::Rpc(uid, msg, is_ws)).await;
+                            }
+                            Err(err) => {
+                                let msg = RpcError::Custom(format!("{:?}", err)).json(0);
+                                let _ = send.send(SendMessage::Rpc(uid, msg, is_ws)).await;
+                            }
                         }
                     }
                     ReceiveMessage::NetworkLost => {
@@ -321,24 +348,24 @@ impl<H: Handler> Engine<H> {
                         rid,
                         game,
                         viewable,
-                        player,
+                        account,
                         peer,
-                        pk,
+                        signer,
                         salt,
                         block,
                     ) => {
                         info!("Engine: chain new room created !");
-                        self.create_pending(rid, game, viewable, player, peer, pk, salt, block);
+                        self.create_pending(rid, game, viewable, Player { account, peer, signer }, salt, block);
                     }
-                    ChainMessage::JoinRoom(rid, player, peer, pk) => {
+                    ChainMessage::JoinRoom(rid, account, peer, signer) => {
                         info!("Engine: chain new player joined !");
-                        self.join_pending(rid, player, peer, pk);
+                        self.join_pending(rid, Player { account, peer, signer });
                     }
                     ChainMessage::StartRoom(rid, game) => {
                         // send accept operation to chain
                         // check room is exist
                         if let Some(proom) = self.pending.get(&rid) {
-                            let params = H::accept(&proom.players).await;
+                            let params = H::chain_accept(&proom.players).await;
                             let _ = pool_send.send(PoolMessage::AcceptRoom(rid, params));
                         } else if self.games.contains_key(&game) {
                             // TODO fetch room from chain.
@@ -353,8 +380,7 @@ impl<H: Handler> Engine<H> {
                             (sequencer, ws),
                             params,
                             is_own,
-                            send.clone(),
-                            chain_send.clone(),
+                            task_sender.clone(),
                         )
                         .await;
 
@@ -383,13 +409,14 @@ impl<H: Handler> Engine<H> {
     }
 }
 
-enum FutureMessage {
+enum FutureMessage<H: Handler> {
     Network(ReceiveMessage),
     Chain(ChainMessage),
+    Task(TaskMessage<H>),
 }
 
 /// Handle result
-pub async fn handle_result<P: Param>(
+async fn handle_result<P: Param>(
     room: &Room,
     result: HandleResult<P>,
     send: &Sender<SendMessage>,
@@ -400,17 +427,14 @@ pub async fn handle_result<P: Param>(
         mut all,
         mut one,
         over,
+        started: _,
     } = result;
 
     loop {
         if !one.is_empty() {
-            let (peer, method, params) = one.remove(0);
-            let p2p_msg = P2pMessage {
-                method: &method,
-                params: params.to_bytes(),
-            };
-            let p2p_bytes = bincode::serialize(&p2p_msg).unwrap(); // safe
-            let rpc_msg = rpc_response(id, &method, params.to_value(), room.id);
+            let (peer, params) = one.remove(0);
+            let p2p_bytes = params.to_bytes();
+            let rpc_msg = build_rpc_response(id, room.id, params.to_value());
             match room.get(&peer) {
                 ConnectType::P2p => send
                     .send(SendMessage::Group(
@@ -440,13 +464,9 @@ pub async fn handle_result<P: Param>(
 
     loop {
         if !all.is_empty() {
-            let (method, params) = all.remove(0);
-            let p2p_msg = P2pMessage {
-                method: &method,
-                params: params.to_bytes(),
-            };
-            let p2p_bytes = bincode::serialize(&p2p_msg).unwrap(); // safe
-            let rpc_msg = rpc_response(id, &method, params.to_value(), room.id);
+            let params = all.remove(0);
+            let p2p_bytes = params.to_bytes();
+            let rpc_msg = build_rpc_response(id, room.id, params.to_value());
             for (peer, c) in room.iter() {
                 match c {
                     ConnectType::P2p => {
@@ -479,13 +499,13 @@ pub async fn handle_result<P: Param>(
         }
     }
 
-    if over.is_some() {
-        let p2p_msg = P2pMessage {
-            method: "over",
+    if over {
+        let params = MethodValues {
+            method: "over".to_owned(),
             params: vec![],
         };
-        let p2p_bytes = bincode::serialize(&p2p_msg).unwrap(); // safe
-        let rpc_msg = rpc_response(id, "over", Default::default(), room.id);
+        let p2p_bytes = params.to_bytes();
+        let rpc_msg = build_rpc_response(id, room.id, params.to_value());
         for (peer, c) in room.iter() {
             match c {
                 ConnectType::P2p => send
@@ -513,3 +533,48 @@ pub async fn handle_result<P: Param>(
         }
     }
 }
+
+fn handle_over<H: Handler>(
+    rid: RoomId,
+    handler: Arc<Mutex<H>>,
+    chain_send: UnboundedSender<ChainMessage>,
+) {
+    tokio::spawn(async move {
+        let mut lock = handler.lock().await;
+        if let Ok((data, proof)) = lock.prove().await {
+            let _ = chain_send.send(ChainMessage::GameOverRoom(rid, data, proof));
+        }
+    });
+}
+
+fn build_rpc_response(id: u64, gid: RoomId, params: Value) -> Value {
+    match (params.get("method"), params.get("result"), params.get("params")) {
+        (Some(method), Some(result), _) => {
+            json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "gid": gid,
+                "method": method,
+                "result": result,
+            })
+        }
+        (Some(method), None, Some(result)) => {
+            json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "gid": gid,
+                "method": method,
+                "result": result,
+            })
+        }
+        _ => {
+            json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "gid": gid,
+                "result": params
+            })
+        }
+    }
+}
+

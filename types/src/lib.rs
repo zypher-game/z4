@@ -2,36 +2,20 @@ pub mod contracts;
 mod error;
 mod task;
 mod utils;
+mod key;
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 pub use error::Error;
 pub use ethereum_types::{Address, H160};
 pub use task::*;
 pub use tdn_types::primitives::PeerId;
 pub use utils::*;
+pub use key::*;
 
 /// Z4 main Result with Z4 error
 pub type Result<T> = core::result::Result<T, Error>;
-
-/// Room id = u64
-pub type RoomId = u64;
-
-/// Game id = Address
-pub type GameId = Address;
-
-/// convert address to peer
-#[inline]
-pub fn address_to_peer(addr: Address) -> PeerId {
-    PeerId(addr.0)
-}
-
-/// convert peer to address
-#[inline]
-pub fn peer_to_address(peer: PeerId) -> Address {
-    H160(peer.0)
-}
 
 /// The result when after handling the message or task.
 #[derive(Default)]
@@ -71,16 +55,22 @@ impl<P: Param> HandleResult<P> {
 /// Serialize & deserialize for params
 pub trait Param: Sized + Send + Default {
     /// To json value
-    fn to_string(self) -> String;
+    fn to_string(&self) -> String;
 
     /// From json value
     fn from_string(s: String) -> Result<Self>;
 
     /// To bytes
-    fn to_bytes(self) -> Vec<u8>;
+    fn to_bytes(&self) -> Vec<u8>;
 
     /// From bytes
     fn from_bytes(bytes: Vec<u8>) -> Result<Self>;
+
+    /// To json value
+    fn to_value(&self) -> Value;
+
+    /// From json value
+    fn from_value(v: Value) -> Result<Self>;
 }
 
 /// Timer tasks when game room started
@@ -220,7 +210,7 @@ pub trait Handler: Send + Sized + 'static {
 }
 
 impl Param for Value {
-    fn to_string(self) -> String {
+    fn to_string(&self) -> String {
         serde_json::to_string(&self).unwrap_or("".to_owned())
     }
 
@@ -228,48 +218,73 @@ impl Param for Value {
         Ok(serde_json::from_str(&s)?)
     }
 
-    fn to_bytes(self) -> Vec<u8> {
+    fn to_bytes(&self) -> Vec<u8> {
         serde_json::to_vec(&self).unwrap_or(vec![])
     }
 
     fn from_bytes(bytes: Vec<u8>) -> Result<Self> {
         Ok(serde_json::from_slice(&bytes)?)
     }
+
+    fn to_value(&self) -> Value {
+        self.clone()
+    }
+
+    fn from_value(v: Value) -> Result<Self> {
+        Ok(v)
+    }
 }
 
 impl Param for String {
-    fn to_string(self) -> String {
-        self
+    fn to_string(&self) -> String {
+        self.clone()
     }
 
     fn from_string(s: String) -> Result<Self> {
         Ok(s)
     }
 
-    fn to_bytes(self) -> Vec<u8> {
+    fn to_bytes(&self) -> Vec<u8> {
         self.as_bytes().to_vec()
     }
 
     fn from_bytes(bytes: Vec<u8>) -> Result<Self> {
         String::from_utf8(bytes).map_err(|_| Error::Serialize)
     }
+
+    fn to_value(&self) -> Value {
+        Value::String(self.clone())
+    }
+
+    fn from_value(v: Value) -> Result<Self> {
+        v.as_str().map(|v| v.to_owned()).ok_or(Error::Serialize)
+    }
 }
 
 impl Param for Vec<u8> {
-    fn to_string(self) -> String {
-        hex::encode(self)
+    fn to_string(&self) -> String {
+        hex::encode(&self)
     }
 
     fn from_string(s: String) -> Result<Self> {
         Ok(hex::decode(s)?)
     }
 
-    fn to_bytes(self) -> Vec<u8> {
-        self
+    fn to_bytes(&self) -> Vec<u8> {
+        self.clone()
     }
 
     fn from_bytes(bytes: Vec<u8>) -> Result<Self> {
         Ok(bytes)
+    }
+
+    fn to_value(&self) -> Value {
+        Value::String(self.to_string())
+    }
+
+    fn from_value(v: Value) -> Result<Self> {
+        let s = v.as_str().map(|v| v.to_owned()).ok_or(Error::Serialize)?;
+        Self::from_string(s)
     }
 }
 
@@ -291,7 +306,7 @@ impl MethodValues {
 }
 
 impl Param for MethodValues {
-    fn to_string(self) -> String {
+    fn to_string(&self) -> String {
         serde_json::to_string(&self).unwrap_or("".to_owned())
     }
 
@@ -299,11 +314,22 @@ impl Param for MethodValues {
         Ok(serde_json::from_str(&s)?)
     }
 
-    fn to_bytes(self) -> Vec<u8> {
+    fn to_bytes(&self) -> Vec<u8> {
         serde_json::to_vec(&self).unwrap_or(vec![])
     }
 
     fn from_bytes(bytes: Vec<u8>) -> Result<Self> {
         Ok(serde_json::from_slice(&bytes)?)
+    }
+
+    fn to_value(&self) -> Value {
+        json!({
+            "method": self.method,
+            "params": self.params,
+        })
+    }
+
+    fn from_value(v: Value) -> Result<Self> {
+        Ok(serde_json::from_value(v)?)
     }
 }
