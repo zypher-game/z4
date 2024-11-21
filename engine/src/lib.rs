@@ -18,7 +18,7 @@ pub mod request;
 pub use config::Config;
 
 /// Z4 main contracts.
-pub use contracts::{simple_game_result, Network, NetworkConfig, RoomMarket, SimpleGame, Token};
+pub use contracts::{RoomMarket, SimpleGame, Token};
 
 /// Z4 main engine.
 pub use engine::Engine;
@@ -36,10 +36,9 @@ pub use tdn::{
 };
 
 /// Export useful types
-pub use z4_types as types;
+pub use z4_types::*;
 
-use types::{RoomId, GameId, Address};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// P2P network message type
 #[derive(Serialize, Deserialize)]

@@ -1,12 +1,8 @@
 use futures_util::{SinkExt, StreamExt};
-use serde_json::Value;
 use std::path::PathBuf;
-use tdn::{
-    prelude::{
-        start_with_config_and_key, Config as TdnConfig, NetworkType, Peer, PeerKey, ReceiveMessage,
-        RecvType, SendMessage, SendType,
-    },
-    types::rpc::rpc_request,
+use tdn::prelude::{
+    start_with_config_and_key, Config as TdnConfig, NetworkType, Peer, PeerKey, ReceiveMessage,
+    RecvType, SendMessage, SendType,
 };
 use tokio::{
     net::TcpStream,
@@ -17,12 +13,10 @@ use tokio_tungstenite::{
     tungstenite::{client::IntoClientRequest, protocol::Message},
     MaybeTlsStream, WebSocketStream,
 };
-use z4_types::{Result, Param, RoomId};
-
-use crate::P2pMessage;
+use z4_types::{json, merge_json, Param, Result, RoomId, Value};
 
 /// Channel message
-pub type ChannelMessage<P> = (RoomId, String, P);
+pub type ChannelMessage<P> = (RoomId, P);
 
 /// Create a channel
 #[inline]
@@ -78,12 +72,15 @@ enum WsResult<P: Param> {
 }
 
 #[inline]
-fn build_request(method: &str, v: Vec<Value>, room: RoomId, peer: &PeerKey) -> Value {
-    let mut request = rpc_request(0, &method, v, room);
-    request
-        .as_object_mut()
-        .unwrap()
-        .insert("peer".to_owned(), peer.peer_id().to_hex().into());
+fn build_request(params: Value, room: RoomId, peer: &PeerKey) -> Value {
+    let mut request = json!({
+        "jsonrpc": "2.0",
+        "id": 0,
+        "gid": room,
+        "peer": peer.peer_id().to_hex(),
+    });
+
+    merge_json(&mut request, &params);
     request
 }
 
@@ -97,7 +94,14 @@ async fn ws_listen<P: Param>(
     let (mut writer, mut reader) = ws_stream.split();
 
     // send connect
-    let request = build_request("connect", vec![], room, &peer);
+    let request = build_request(
+        json!({
+            "method": "connect",
+            "params": [],
+        }),
+        room,
+        &peer,
+    );
     let s = Message::from(serde_json::to_string(&request).unwrap_or("".to_owned()));
     let _ = writer.send(s).await;
 
@@ -114,12 +118,8 @@ async fn ws_listen<P: Param>(
         };
 
         match res {
-            Some(WsResult::Out((room, method, params))) => {
-                let v = match params.to_value() {
-                    Value::Array(p) => p,
-                    o => vec![o],
-                };
-                let request = build_request(&method, v, room, &peer);
+            Some(WsResult::Out((room, params))) => {
+                let request = build_request(params.to_value(), room, &peer);
                 let s = Message::from(serde_json::to_string(&request).unwrap_or("".to_owned()));
                 let _ = writer.send(s).await;
             }
@@ -129,10 +129,17 @@ async fn ws_listen<P: Param>(
                     Ok(mut values) => {
                         let gid = values["gid"].as_u64().unwrap_or(0);
                         let method = values["method"].as_str().unwrap_or("").to_owned();
-                        // let server_id = values["peer"].as_str().unwrap(); TODO
-                        match P::from_value(values["result"].take()) {
+                        let mut params = values["result"].take();
+                        merge_json(
+                            &mut params,
+                            &json!({
+                                "method": method
+                            }),
+                        );
+
+                        match P::from_value(params) {
                             Ok(p) => {
-                                let _ = send.send((gid, method, p));
+                                let _ = send.send((gid, p));
                             }
                             _ => {}
                         }
@@ -190,36 +197,21 @@ async fn p2p_listen<P: Param>(
         };
 
         match res {
-            Some(P2pResult::Out((room, method, params))) => {
-                let msg = P2pMessage {
-                    method: &method,
-                    params: params.to_bytes(),
-                };
-
-                match bincode::serialize(&msg) {
-                    Ok(bytes) => {
-                        let _ = p2p_send
-                            .send(SendMessage::Group(
-                                room,
-                                SendType::Event(0, server_id, bytes),
-                            ))
-                            .await;
-                    }
-                    _ => {}
-                }
+            Some(P2pResult::Out((room, params))) => {
+                let _ = p2p_send
+                    .send(SendMessage::Group(
+                        room,
+                        SendType::Event(0, server_id, params.to_bytes()),
+                    ))
+                    .await;
             }
             Some(P2pResult::Stream(message)) => match message {
                 ReceiveMessage::Group(gid, msg) => match msg {
                     RecvType::Event(peer, msg) => {
                         if peer == server_id {
-                            match bincode::deserialize::<P2pMessage>(&msg) {
-                                Ok(P2pMessage { method, params }) => {
-                                    match Param::from_bytes(params) {
-                                        Ok(p) => {
-                                            let _ = send.send((gid, method.to_owned(), p));
-                                        }
-                                        _ => {}
-                                    }
+                            match Param::from_bytes(msg) {
+                                Ok(p) => {
+                                    let _ = send.send((gid, p));
                                 }
                                 _ => {}
                             }

@@ -1,22 +1,22 @@
 use ethers::prelude::Address;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tdn::{
     prelude::{
         start_with_config_and_key, NetworkType, PeerId, ReceiveMessage, SendMessage, SendType,
     },
-    types::{
-        primitives::vec_remove_item,
-        rpc::RpcError,
-    },
+    types::{primitives::vec_remove_item, rpc::RpcError},
 };
-use serde_json::{json, Value};
 use tokio::{
     select,
-    sync::mpsc::{Sender, UnboundedReceiver, UnboundedSender, unbounded_channel},
+    sync::mpsc::{unbounded_channel, Sender, UnboundedReceiver, UnboundedSender},
     sync::Mutex,
 };
-use z4_types::{HandleResult, Handler, Param, handle_tasks, TaskMessage, Result, Player, GameId, RoomId, MethodValues};
+use z4_types::{
+    handle_tasks, GameId, HandleResult, Handler, MethodValues, Param, Player, Result, RoomId,
+    TaskMessage,
+};
 
 use crate::{
     config::Config,
@@ -25,7 +25,7 @@ use crate::{
     room::{ConnectType, Room},
     rpc::handle_rpc,
     scan::{chain_channel, listen as scan_listen},
-    ChainMessage, PoolMessage
+    ChainMessage, PoolMessage,
 };
 
 /// Store the room info
@@ -156,7 +156,9 @@ impl<H: Handler> Engine<H> {
                     .collect::<Vec<u8>>()
                     .try_into()
                     .unwrap_or([0u8; 32]);
-                if let Some((raw_handler, tasks)) = H::chain_create(&proom.players, params, id, seed).await {
+                if let Some((raw_handler, tasks)) =
+                    H::chain_create(&proom.players, params, id, seed).await
+                {
                     let handler = Arc::new(Mutex::new(raw_handler));
                     let ids: Vec<PeerId> = proom.players.iter().map(|p| p.peer).collect();
 
@@ -264,6 +266,7 @@ impl<H: Handler> Engine<H> {
 
         let (peer_addr, send, mut out_recv) = start_with_config_and_key(tdn_config, key).await?;
         println!("SERVER: peer id: {:?}", peer_addr);
+        println!("P2P   : http://0.0.0.0:{}", self.config.p2p_port);
         println!("HTTP  : http://0.0.0.0:{}", self.config.http_port);
         if let Some(p) = self.config.ws_port {
             println!("WS    : ws://0.0.0.0:{}", p);
@@ -302,7 +305,11 @@ impl<H: Handler> Engine<H> {
                         let is_over = res.over;
                         handle_result(&self.get_room(&rid).room, res, &send, None, 0).await;
                         if is_over {
-                            handle_over(rid, self.get_room(&rid).handler.clone(), chain_send.clone());
+                            handle_over(
+                                rid,
+                                self.get_room(&rid).handler.clone(),
+                                chain_send.clone(),
+                            );
                         }
                     }
                 },
@@ -315,7 +322,11 @@ impl<H: Handler> Engine<H> {
                             let is_over = res.over;
                             handle_result(&self.get_room(&rid).room, res, &send, None, 0).await;
                             if is_over {
-                                handle_over(rid, self.get_room(&rid).handler.clone(), chain_send.clone());
+                                handle_over(
+                                    rid,
+                                    self.get_room(&rid).handler.clone(),
+                                    chain_send.clone(),
+                                );
                             }
                         }
                     }
@@ -323,11 +334,16 @@ impl<H: Handler> Engine<H> {
                         match handle_rpc(&mut self, &send, uid, params, is_ws).await {
                             Ok(Some((res, rid, is_rpc, id))) => {
                                 let is_over = res.over;
-                                handle_result(&self.get_room(&rid).room, res, &send, is_rpc, id).await;
+                                handle_result(&self.get_room(&rid).room, res, &send, is_rpc, id)
+                                    .await;
                                 if is_over {
-                                    handle_over(rid, self.get_room(&rid).handler.clone(), chain_send.clone());
+                                    handle_over(
+                                        rid,
+                                        self.get_room(&rid).handler.clone(),
+                                        chain_send.clone(),
+                                    );
                                 }
-                            },
+                            }
                             Ok(None) => {
                                 let msg = RpcError::Custom("None".to_owned()).json(0);
                                 let _ = send.send(SendMessage::Rpc(uid, msg, is_ws)).await;
@@ -355,11 +371,29 @@ impl<H: Handler> Engine<H> {
                         block,
                     ) => {
                         info!("Engine: chain new room created !");
-                        self.create_pending(rid, game, viewable, Player { account, peer, signer }, salt, block);
+                        self.create_pending(
+                            rid,
+                            game,
+                            viewable,
+                            Player {
+                                account,
+                                peer,
+                                signer,
+                            },
+                            salt,
+                            block,
+                        );
                     }
                     ChainMessage::JoinRoom(rid, account, peer, signer) => {
                         info!("Engine: chain new player joined !");
-                        self.join_pending(rid, Player { account, peer, signer });
+                        self.join_pending(
+                            rid,
+                            Player {
+                                account,
+                                peer,
+                                signer,
+                            },
+                        );
                     }
                     ChainMessage::StartRoom(rid, game) => {
                         // send accept operation to chain
@@ -375,14 +409,8 @@ impl<H: Handler> Engine<H> {
                         info!("Engine: start new room: {}", rid);
                         // if mine, create room
                         let is_own = sequencer == peer_addr;
-                        self.start_room(
-                            rid,
-                            (sequencer, ws),
-                            params,
-                            is_own,
-                            task_sender.clone(),
-                        )
-                        .await;
+                        self.start_room(rid, (sequencer, ws), params, is_own, task_sender.clone())
+                            .await;
 
                         if is_own {
                             let _ = send
@@ -548,7 +576,11 @@ fn handle_over<H: Handler>(
 }
 
 fn build_rpc_response(id: u64, gid: RoomId, params: Value) -> Value {
-    match (params.get("method"), params.get("result"), params.get("params")) {
+    match (
+        params.get("method"),
+        params.get("result"),
+        params.get("params"),
+    ) {
         (Some(method), Some(result), _) => {
             json!({
                 "jsonrpc": "2.0",
@@ -577,4 +609,3 @@ fn build_rpc_response(id: u64, gid: RoomId, params: Value) -> Value {
         }
     }
 }
-

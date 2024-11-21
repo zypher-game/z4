@@ -1,8 +1,9 @@
 use ethabi::{encode, Token};
 use ethereum_types::{Address, H160};
+use serde_json::Value;
 use tdn_types::primitives::PeerId;
 
-use crate::{Result, Error};
+use crate::{Error, Result};
 
 /// Room id = u64
 pub type RoomId = u64;
@@ -85,5 +86,19 @@ pub fn env_values<T: std::str::FromStr>(key: &str, default: Option<Vec<T>>) -> R
         }
         (Err(_), Some(v)) => Ok(v),
         (Err(_), None) => return Err(Error::Anyhow(key.to_owned() + " env missing")),
+    }
+}
+
+/// Merge two values
+pub fn merge_json(a: &mut Value, b: &Value) {
+    match (a, b) {
+        (&mut Value::Object(ref mut a), Value::Object(b)) => {
+            for (k, v) in b {
+                merge_json(a.entry(k.clone()).or_insert(Value::Null), v);
+            }
+        }
+        (a, b) => {
+            *a = b.clone();
+        }
     }
 }

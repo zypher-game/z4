@@ -1,11 +1,8 @@
 use tdn::prelude::{GroupId, RecvType, SendMessage, SendType};
 use tokio::sync::mpsc::Sender;
-use z4_types::{Handler, Param, Result, HandleResult};
+use z4_types::{HandleResult, Handler, Param, Result};
 
-use crate::{
-    engine::Engine,
-    room::ConnectType
-};
+use crate::{engine::Engine, room::ConnectType};
 
 /// Handle p2p message
 pub async fn handle_p2p<H: Handler>(
@@ -63,8 +60,6 @@ pub async fn handle_p2p<H: Handler>(
                 Ok(None)
             }
         }
-        _ => {
-            Ok(None)
-        }
+        _ => Ok(None),
     }
 }

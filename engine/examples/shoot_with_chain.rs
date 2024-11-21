@@ -84,6 +84,7 @@ async fn main() {
     let game = hex_address(GAME).unwrap();
 
     let mut config = Config::default();
+    config.p2p_port = 7364;
     config.ws_port = Some(8000);
     config.secret_key = hex::encode(server_key.to_db_bytes());
     config.chain_network = network.to_str().to_owned();

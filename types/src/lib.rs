@@ -1,18 +1,19 @@
-pub mod contracts;
 mod error;
+mod key;
+mod network;
 mod task;
 mod utils;
-mod key;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+pub use serde_json::{json, Value};
 
 pub use error::Error;
 pub use ethereum_types::{Address, H160};
+pub use key::*;
+pub use network::*;
 pub use task::*;
 pub use tdn_types::primitives::PeerId;
 pub use utils::*;
-pub use key::*;
 
 /// Z4 main Result with Z4 error
 pub type Result<T> = core::result::Result<T, Error>;

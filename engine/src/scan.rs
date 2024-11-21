@@ -7,7 +7,7 @@ use tokio::{
     sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
     time::timeout,
 };
-use z4_types::{PeerId, RoomId, PublicKey};
+use z4_types::{PeerId, PublicKey, RoomId};
 
 use crate::contracts::RoomMarket;
 use crate::ChainMessage;
