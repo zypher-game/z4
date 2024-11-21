@@ -1,5 +1,5 @@
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
-use z4_engine::{chain_channel, ChainMessage, Config, Engine, PeerKey, H160};
+use z4_engine::{chain_channel, ChainMessage, Config, Engine, PeerKey, Player, H160};
 
 mod shoot_common;
 use shoot_common::*;
@@ -34,6 +34,7 @@ async fn main() {
 
     // running server
     let mut config = Config::default();
+    config.p2p_port = 7364;
     config.ws_port = Some(8000);
     config.secret_key = hex::encode(server_key.to_db_bytes());
     config.groups = vec![ROOM]; // Add default room to it.
@@ -45,15 +46,38 @@ async fn main() {
         ROOM,
         game,
         false,
-        H160(id1.0),
-        id1,
-        [0u8; 32],
+        Player {
+            account: H160(id1.0),
+            peer: id1,
+            signer: [0u8; 32],
+        },
         [0u8; 32],
         [0u8; 32],
     );
-    engine.join_pending(ROOM, H160(id2.0), id2, [0u8; 32]);
-    engine.join_pending(ROOM, H160(id3.0), id3, [0u8; 32]);
-    engine.join_pending(ROOM, H160(id4.0), id4, [0u8; 32]);
+    engine.join_pending(
+        ROOM,
+        Player {
+            account: H160(id2.0),
+            peer: id2,
+            signer: [0u8; 32],
+        },
+    );
+    engine.join_pending(
+        ROOM,
+        Player {
+            account: H160(id3.0),
+            peer: id3,
+            signer: [0u8; 32],
+        },
+    );
+    engine.join_pending(
+        ROOM,
+        Player {
+            account: H160(id4.0),
+            peer: id4,
+            signer: [0u8; 32],
+        },
+    );
 
     let (chain_send, chain_recv) = chain_channel();
     let chain_send1 = chain_send.clone();

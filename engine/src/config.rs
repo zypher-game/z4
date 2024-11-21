@@ -1,11 +1,11 @@
 use ethers::prelude::{Address, Http, LocalWallet, Provider, SignerMiddleware, U256};
 use std::{path::PathBuf, sync::Arc};
 use tdn::prelude::{Config as TdnConfig, PeerKey};
-
-use crate::{
-    contracts::{Network, NetworkConfig, RoomMarket, Token},
-    types::{env_value, env_values, hex_address, Result, Z4_ROOM_MARKET_GROUP},
+use z4_types::{
+    env_value, env_values, hex_address, Network, NetworkConfig, Result, Z4_ROOM_MARKET_GROUP,
 };
+
+use crate::contracts::{RoomMarket, Token};
 
 /// config of engine
 #[derive(Default)]

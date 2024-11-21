@@ -1,6 +1,6 @@
 [package]
-name = "z4-types"
-description = "Z4 game framework types"
+name = "z4-pozk"
+description = "a multiplayer real-time decentralized game framework with PoZK"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -11,16 +11,27 @@ license.workspace = true
 include.workspace = true
 
 [dependencies]
+z4-types.workspace = true
+pozk-utils.workspace = true
+
 anyhow.workspace = true
-ark-ec.workspace = true
-ark-ed-on-bn254.workspace = true
-ark-std.workspace = true
 async-trait.workspace = true
 bincode.workspace = true
-ethabi.workspace = true
 ethereum-types.workspace = true
+futures-util.workspace = true
 hex.workspace = true
+reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-tdn_types.workspace = true
 tokio.workspace = true
+tracing.workspace = true
+tokio-tungstenite.workspace = true
+
+[dev-dependencies]
+rand_chacha.workspace = true
+tracing-subscriber.workspace = true
+ark-bn254.workspace = true
+
+[features]
+default = []
+risc0 = []

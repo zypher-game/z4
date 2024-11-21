@@ -4,33 +4,30 @@ use tdn::{
     prelude::{PeerId, SendMessage},
     types::rpc::rpc_response,
 };
-use tokio::sync::mpsc::{Sender, UnboundedSender};
-
-use crate::{
-    engine::{handle_result, Engine},
-    room::ConnectType,
-    types::{address_hex, ChainMessage, Error, Result, Z4_ROOM_MARKET_GROUP},
-    Handler, Param,
+use tokio::sync::mpsc::Sender;
+use z4_types::{
+    address_hex, Error, HandleResult, Handler, Param, Result, RoomId, Z4_ROOM_MARKET_GROUP,
 };
+
+use crate::{engine::Engine, room::ConnectType};
 
 /// Handle rpc message
 pub async fn handle_rpc<H: Handler>(
-    engine: &Engine<H>,
+    engine: &mut Engine<H>,
     send: &Sender<SendMessage>,
-    chain_send: &UnboundedSender<ChainMessage>,
     uid: u64,
     mut params: Value,
     is_ws: bool,
-) -> Result<()> {
+) -> Result<Option<(HandleResult<H::Param>, RoomId, Option<(PeerId, u64)>, u64)>> {
     let id = params["id"].as_u64().unwrap_or(0);
     let gid = params["gid"].as_u64().unwrap_or(0);
     let method = params["method"].as_str().unwrap_or("").to_owned();
     let peer_id = PeerId::from_hex(params["peer"].as_str().unwrap_or(""))?;
-    let params = params["params"].take();
 
     // inner rpc method for query all pending room for a game
     if &method == "room_market" && gid == Z4_ROOM_MARKET_GROUP {
-        let p = params.as_array().ok_or(Error::Params)?;
+        let values = params["params"].take();
+        let p = values.as_array().ok_or(Error::Params)?;
 
         if p.is_empty() {
             return Err(Error::NoRoom);
@@ -47,7 +44,7 @@ pub async fn handle_rpc<H: Handler>(
                     let players: Vec<String> = proom
                         .players
                         .iter()
-                        .map(|(p, _, _)| address_hex(p))
+                        .map(|p| address_hex(&p.account))
                         .collect();
                     if let Some((seq, ws)) = &proom.sequencer {
                         pendings.push(json!({
@@ -71,7 +68,7 @@ pub async fn handle_rpc<H: Handler>(
         let rpc_msg = rpc_response(id, &method, json!(pendings), gid);
         let _ = send.send(SendMessage::Rpc(uid, rpc_msg, is_ws)).await;
 
-        return Ok(());
+        return Ok(None);
     }
 
     if !engine.has_room(&gid) {
@@ -80,32 +77,30 @@ pub async fn handle_rpc<H: Handler>(
 
     if &method == "connect" && is_ws {
         if engine.online(gid, peer_id, ConnectType::Rpc(uid)).await {
-            let mut hr = engine.get_room(&gid).lock().await;
-            let res = hr.handler.online(peer_id).await?;
+            let mut handler = engine.get_room(&gid).handler.lock().await;
+            let res = handler.online(peer_id).await?;
+            drop(handler);
 
             let is_rpc = if is_ws { None } else { Some((peer_id, uid)) };
-            handle_result(&hr.room, res, send, is_rpc, id).await;
-            drop(hr);
+            return Ok(Some((res, gid, is_rpc, id)));
         } else {
             if !engine.has_peer(&peer_id).await {
                 // TODO close the connections
             }
         }
-        return Ok(());
+        return Ok(None);
     }
+
+    let param = H::Param::from_value(params)?;
 
     if engine.is_room_player(&gid, &peer_id).await {
-        let params = H::Param::from_value(params)?;
-        let mut hr = engine.get_room(&gid).lock().await;
-        let mut res = hr.handler.handle(peer_id, &method, params).await?;
+        let mut handler = engine.get_room(&gid).handler.lock().await;
+        let res = handler.handle(peer_id, param).await?;
+        drop(handler);
 
-        let over = res.replace_over();
         let is_rpc = if is_ws { None } else { Some((peer_id, uid)) };
-        handle_result(&hr.room, res, send, is_rpc, id).await;
-        drop(hr);
-        if let Some((data, proof)) = over {
-            let _ = chain_send.send(ChainMessage::GameOverRoom(gid, data, proof));
-        }
+        return Ok(Some((res, gid, is_rpc, id)));
     }
-    Ok(())
+
+    Ok(None)
 }

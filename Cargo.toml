@@ -4,11 +4,12 @@ members = [
   "engine",
   "node",
   "types",
+  "pozk",
 ]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 authors = ["Zypher <dev@zypher.network>"]
 readme = "README.md"
@@ -20,8 +21,9 @@ license = "GPL-3.0-only"
 include = ["public", "src", "Cargo.toml", "README.md"]
 
 [workspace.dependencies]
-z4-types = { version = "0.1", path = "./types" }
-z4-engine = { version = "0.1", path = "./engine" }
+z4-types = { version = "0.2", path = "./types" }
+z4-engine = { version = "0.2", path = "./engine" }
+pozk-utils = { version = "0.1", default-features = false }
 
 anyhow = "1.0"
 async-trait = "0.1"
@@ -35,16 +37,19 @@ ark-ed-on-bn254 = { version = "0.4", default-features = false, package = "ark-ed
 bincode = "1.3"
 clap = { version = "4.5", features = ["derive"] }
 dotenv = "0.15"
+ethabi = "18.0"
 ethers = "2.0"
 ethereum-types = "0.14"
-hex = "0.4"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
+hex = "0.4"
 rand_chacha = "0.3"
-tracing-subscriber = "0.3"
+reqwest = "0.12"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tdn = { version = "0.10", default-features = false, features = ["multiple"] }
-tokio = "1.35"
-tokio-tungstenite = "0.21"
+tdn_types = { version = "0.10", default-features = false, features = ["multiple"] }
+tokio = { version = "1.41", features = ["time", "rt"] }
+tokio-tungstenite = "0.24"
 tracing = "0.1"
+tracing-subscriber = "0.3"
 uzkge = { version = "0.1", default-features = false }

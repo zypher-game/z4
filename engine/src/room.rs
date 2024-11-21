@@ -1,6 +1,5 @@
 use std::collections::hash_map::{HashMap, Iter};
-
-use crate::{PeerId, RoomId};
+use z4_types::{PeerId, RoomId};
 
 /// The type of player connect to node
 #[derive(Clone, Copy, Debug)]

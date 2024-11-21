@@ -7,9 +7,10 @@ use tokio::{
     sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
     time::timeout,
 };
+use z4_types::{PeerId, PublicKey, RoomId};
 
 use crate::contracts::RoomMarket;
-use crate::{ChainMessage, PeerId, PublicKey, RoomId};
+use crate::ChainMessage;
 
 const TIMEOUT: u64 = 10;
 const DELAY: u64 = 1;

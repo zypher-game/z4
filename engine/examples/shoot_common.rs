@@ -19,9 +19,14 @@ use uzkge::{
 use z4_engine::{
     json,
     request::{message_channel, run_p2p_channel, run_ws_channel, ChannelMessage},
-    simple_game_result, Address, DefaultParams, Error, HandleResult, Handler, Peer, PeerId,
-    PeerKey, Result, RoomId, Tasks,
+    simple_game_result, Address, Error, HandleResult, Handler, MethodValues, Peer, PeerId, PeerKey,
+    Player, Result, RoomId, Tasks,
 };
+
+#[allow(dead_code)]
+fn main() {
+    //
+}
 
 #[derive(Default)]
 pub struct ShootPlayer {
@@ -38,25 +43,25 @@ pub struct ShootHandler {
 
 #[async_trait::async_trait]
 impl Handler for ShootHandler {
-    type Param = DefaultParams;
+    type Param = MethodValues;
 
-    async fn accept(_peers: &[(Address, PeerId, [u8; 32])]) -> Vec<u8> {
+    async fn chain_accept(_peers: &[Player]) -> Vec<u8> {
         vec![]
     }
 
-    async fn create(
-        peers: &[(Address, PeerId, [u8; 32])],
+    async fn chain_create(
+        peers: &[Player],
         _params: Vec<u8>,
         _rid: RoomId,
         _seed: [u8; 32],
-    ) -> (Self, Tasks<Self>) {
+    ) -> Option<(Self, Tasks<Self>)> {
         let accounts = peers
             .iter()
-            .map(|(account, peer, _pk)| {
+            .map(|p| {
                 (
-                    *peer,
+                    p.peer,
                     (
-                        *account,
+                        p.account,
                         ShootPlayer {
                             hp: TOTAL,
                             bullet: TOTAL,
@@ -66,24 +71,24 @@ impl Handler for ShootHandler {
             })
             .collect();
 
-        (
+        Some((
             Self {
                 accounts,
                 operations: vec![],
             },
             Default::default(),
-        )
+        ))
     }
 
     async fn handle(
         &mut self,
         player: PeerId,
-        method: &str,
-        params: DefaultParams,
+        param: MethodValues,
     ) -> Result<HandleResult<Self::Param>> {
-        let mut params = params.0;
+        let MethodValues { method, mut params } = param;
 
         // only support shoot method
+        let method = method.as_str();
         if method == "shoot" {
             if let Some(value) = params.pop() {
                 let target = PeerId::from_hex(value.as_str().unwrap()).unwrap();
@@ -118,15 +123,10 @@ impl Handler for ShootHandler {
                 );
 
                 let mut result = HandleResult::default();
-                result.add_all(
-                    "shoot",
-                    DefaultParams(vec![
-                        player.to_hex().into(),
-                        value,
-                        a_bullet.into(),
-                        b_hp.into(),
-                    ]),
-                );
+                result.add_all(MethodValues {
+                    method: "shoot".to_owned(),
+                    params: vec![player.to_hex().into(), value, a_bullet.into(), b_hp.into()],
+                });
 
                 self.operations.push(ShootOperation {
                     from: a_account,
@@ -150,28 +150,8 @@ impl Handler for ShootHandler {
                 }
 
                 if game_over {
-                    // zkp
-                    let players: Vec<Address> = self
-                        .accounts
-                        .iter()
-                        .map(|(_, (account, _))| *account)
-                        .collect();
-
-                    let mut prng = ChaChaRng::from_seed([0u8; 32]);
-                    let prover_params = gen_prover_params(&players, &self.operations).unwrap();
-                    println!("SERVER: zk key ok, op: {}", self.operations.len());
-
-                    let (proof, results) =
-                        prove_shoot(&mut prng, &prover_params, &players, &self.operations).unwrap();
-                    println!("SERVER: zk prove ok, op: {}", self.operations.len());
-                    let verifier_params = get_verifier_params(prover_params);
-                    verify_shoot(&verifier_params, &results, &proof).unwrap();
-                    println!("SERVER: zk verify ok, op: {}", self.operations.len());
-
-                    // TODO results serialize to bytes
-                    let proof_bytes = bincode::serialize(&proof).unwrap();
-                    let rank = simple_game_result(&players);
-                    result.over(rank, proof_bytes);
+                    println!("Game over, will proving");
+                    result.over();
                 }
 
                 return Ok(result);
@@ -180,6 +160,31 @@ impl Handler for ShootHandler {
 
         Err(Error::Params)
     }
+
+    async fn prove(&mut self) -> Result<(Vec<u8>, Vec<u8>)> {
+        // zkp
+        let players: Vec<Address> = self
+            .accounts
+            .iter()
+            .map(|(_, (account, _))| *account)
+            .collect();
+
+        let mut prng = ChaChaRng::from_seed([0u8; 32]);
+        let prover_params = gen_prover_params(&players, &self.operations).unwrap();
+        println!("SERVER: zk key ok, op: {}", self.operations.len());
+
+        let (proof, results) =
+            prove_shoot(&mut prng, &prover_params, &players, &self.operations).unwrap();
+        println!("SERVER: zk prove ok, op: {}", self.operations.len());
+        let verifier_params = get_verifier_params(prover_params);
+        verify_shoot(&verifier_params, &results, &proof).unwrap();
+        println!("SERVER: zk verify ok, op: {}", self.operations.len());
+
+        // TODO results serialize to bytes
+        let proof_bytes = bincode::serialize(&proof).unwrap();
+        let rank = simple_game_result(&players);
+        Ok((rank, proof_bytes))
+    }
 }
 
 pub async fn mock_player_with_rpc(room_id: RoomId, player: PeerKey, opponents: Vec<PeerId>) {
@@ -187,7 +192,7 @@ pub async fn mock_player_with_rpc(room_id: RoomId, player: PeerKey, opponents: V
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
     // create ws channel with message
-    let (in_send, in_recv) = message_channel::<DefaultParams>();
+    let (in_send, in_recv) = message_channel::<MethodValues>();
     let out_recv = run_ws_channel(&player, room_id, in_recv, "ws://127.0.0.1:8000")
         .await
         .unwrap();
@@ -205,7 +210,7 @@ pub async fn mock_player_with_p2p(
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
     // create p2p channel with message
-    let (in_send, in_recv) = message_channel::<DefaultParams>();
+    let (in_send, in_recv) = message_channel::<MethodValues>();
     let mut server = Peer::peer(sid);
     server.socket = "127.0.0.1:7364".parse().unwrap();
     let out_recv = run_p2p_channel(&player, room_id, in_recv, server)
@@ -219,8 +224,8 @@ async fn mock_player(
     room_id: RoomId,
     player: PeerKey,
     mut opponents: Vec<PeerId>,
-    in_send: UnboundedSender<ChannelMessage<DefaultParams>>,
-    mut out_recv: UnboundedReceiver<ChannelMessage<DefaultParams>>,
+    in_send: UnboundedSender<ChannelMessage<MethodValues>>,
+    mut out_recv: UnboundedReceiver<ChannelMessage<MethodValues>>,
 ) {
     let my_id = player.peer_id();
     let mut seed = [0u8; 32];
@@ -235,7 +240,7 @@ async fn mock_player(
 
     enum Work {
         Shoot(PeerId),
-        Shooted(ChannelMessage<DefaultParams>),
+        Shooted(ChannelMessage<MethodValues>),
     }
 
     loop {
@@ -252,12 +257,15 @@ async fn mock_player(
 
         match work {
             Some(Work::Shoot(someone)) => {
-                let params = DefaultParams(vec![json!(my_id.to_hex()), json!(someone.to_hex())]);
-                in_send.send((room_id, "shoot".to_owned(), params)).unwrap();
+                let params = MethodValues {
+                    method: "shoot".to_owned(),
+                    params: vec![json!(my_id.to_hex()), json!(someone.to_hex())],
+                };
+                in_send.send((room_id, params)).unwrap();
             }
-            Some(Work::Shooted((_room, method, params))) => match method.as_str() {
+            Some(Work::Shooted((_room, params))) => match params.method.as_str() {
                 "shoot" => {
-                    let params = params.0;
+                    let params = params.params;
                     let a = PeerId::from_hex(params[0].as_str().unwrap()).unwrap();
                     let b = PeerId::from_hex(params[1].as_str().unwrap()).unwrap();
                     let a_bullet = params[2].as_i64().unwrap() as u32;
@@ -405,10 +413,11 @@ pub fn gen_prover_params(
     let (cs, _) = build_cs(players, operations);
 
     let cs_size = cs.size();
-    let pcs = load_srs_params(cs_size)?;
+    let pcs = load_srs_params(cs_size).map_err(|err| Error::Zk(err.to_string()))?;
     let lagrange_pcs = load_lagrange_params(cs_size);
 
-    let prover_params = indexer_with_lagrange(&cs, &pcs, lagrange_pcs.as_ref(), None).unwrap();
+    let prover_params =
+        indexer_with_lagrange(&cs, &pcs, lagrange_pcs.as_ref(), None, None).unwrap();
 
     Ok(ProverParams {
         pcs,
@@ -444,7 +453,8 @@ pub fn prove_shoot<R: CryptoRng + RngCore>(
         &cs,
         &prover_params.prover_params,
         &witness,
-    )?;
+    )
+    .map_err(|err| Error::Zk(err.to_string()))?;
 
     Ok((proof, publics))
 }
@@ -467,12 +477,13 @@ pub fn verify_shoot(
         online_inputs.push(Fr::from(p.hp));
     }
 
-    Ok(verifier(
+    verifier(
         &mut transcript,
         &verifier_params.shrunk_vk,
         &verifier_params.shrunk_cs,
         &verifier_params.verifier_params,
         &online_inputs,
         proof,
-    )?)
+    )
+    .map_err(|err| Error::Zk(err.to_string()))
 }
