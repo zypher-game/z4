@@ -23,6 +23,7 @@ include = ["public", "src", "Cargo.toml", "README.md"]
 [workspace.dependencies]
 z4-types = { version = "0.2", path = "./types" }
 z4-engine = { version = "0.2", path = "./engine" }
+z4-pozk = { version = "0.2", path = "./pozk" }
 pozk-utils = { version = "0.1", default-features = false }
 
 anyhow = "1.0"

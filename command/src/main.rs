@@ -75,9 +75,12 @@ fn main() {
             // TODO rename cargo & contract name
 
             println!(
-                "{} with {}-{} ready. Happy hacking!",
+                "{} with {}-{} ready. Happy hacking! Next:",
                 args.name, contract_mode, zk_mode
             );
+            println!("1. deploy your game contracts");
+            println!("2. cp .env-template to .env and set");
+            println!("3. cargo run or production");
         }
         Z4Cli::Deploy(args) => {
             println!("{:?}", args);

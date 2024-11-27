@@ -94,6 +94,7 @@ pub trait Task: Send + Sync {
 pub type Tasks<H> = Vec<Box<dyn Task<H = H>>>;
 
 /// Standard player from chain & pozk
+#[derive(Copy, Clone, Debug)]
 pub struct Player {
     pub account: Address,
     pub peer: PeerId,
